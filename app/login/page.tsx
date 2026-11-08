@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, ArrowRight, ShieldCheck, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Loader2, ArrowRight, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,12 +11,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-
-  const handleFillDemo = () => {
-    setUsername("admin");
-    setPassword("admin123!");
-    setErrorMessage("");
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,27 +96,6 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {/* Demo credentials notification pill */}
-            <div className="mb-6 rounded-lg border border-[#222222] bg-[#111111] p-3 text-xs">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="flex items-center gap-1.5 font-medium text-[#cccccc]">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  Demo Access
-                </span>
-                <button
-                  type="button"
-                  onClick={handleFillDemo}
-                  className="text-[11px] font-medium text-[#ededed] hover:text-white underline underline-offset-2 transition-colors cursor-pointer"
-                >
-                  Auto-fill
-                </button>
-              </div>
-              <div className="text-[11px] text-[#777777] font-mono flex items-center justify-between">
-                <span>login: <strong className="text-zinc-300">admin</strong></span>
-                <span>pwd: <strong className="text-zinc-300">admin123!</strong></span>
-              </div>
-            </div>
-
             {/* Error banner */}
             {errorMessage && (
               <div
@@ -151,7 +124,7 @@ export default function LoginPage() {
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin"
+                  placeholder="Enter your username"
                   className="w-full h-10 px-3.5 rounded-lg border border-[#27272a] bg-[#121214] text-sm text-white placeholder-[#52525b] outline-none transition-all duration-150 focus:border-white focus:ring-1 focus:ring-white"
                 />
               </div>
@@ -215,7 +188,7 @@ export default function LoginPage() {
 
           {/* Footer note */}
           <div className="mt-6 text-center text-xs text-[#71717a]">
-            Vercel Minimalism Design System &middot; Protected Route Demo
+            Vercel Minimalism Design System &middot; Protected Route
           </div>
         </div>
       </main>

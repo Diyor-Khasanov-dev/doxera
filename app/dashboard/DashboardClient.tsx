@@ -207,11 +207,11 @@ export default function DashboardClient({ user }: { user: UserProfile }) {
                 </div>
                 <div className="flex justify-between py-2 border-b border-[#1f1f22]">
                   <span className="text-zinc-400">Route Security</span>
-                  <span className="font-mono text-zinc-300">middleware.ts + server-side session</span>
+                  <span className="font-mono text-zinc-300">proxy.ts + server-side session</span>
                 </div>
                 <div className="flex justify-between py-2">
-                  <span className="text-zinc-400">Demo User</span>
-                  <span className="font-mono text-zinc-300">admin (demo pass: admin123!)</span>
+                  <span className="text-zinc-400">Active User</span>
+                  <span className="font-mono text-zinc-300">{user.username}</span>
                 </div>
               </div>
             </div>
