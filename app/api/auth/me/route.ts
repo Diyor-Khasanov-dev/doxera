@@ -1,22 +1,49 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { AUTH_COOKIE_NAME, DEMO_USER, verifySessionToken } from "@/lib/auth";
+import { AUTH_COOKIE_NAME, parseAndVerifySessionToken } from "@/lib/auth";
+import { findLLCById, findLLCByUsername } from "@/lib/llcStore";
 
 export async function GET() {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
-  const isValid = await verifySessionToken(token);
-  if (!isValid) {
+  const { isValid, payload } = await parseAndVerifySessionToken(token);
+  if (!isValid || !payload) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
+  }
+
+  if (payload.role === "admin") {
+    return NextResponse.json({
+      authenticated: true,
+      role: "admin",
+      user: {
+        username: payload.username,
+        name: payload.name || "Admin User",
+        role: "Administrator",
+      },
+    });
+  }
+
+  // LLC User
+  let llc = null;
+  if (payload.llcId) {
+    llc = await findLLCById(payload.llcId);
+  }
+  if (!llc) {
+    llc = await findLLCByUsername(payload.username);
   }
 
   return NextResponse.json({
     authenticated: true,
+    role: "llc",
     user: {
-      username: DEMO_USER.username,
-      name: DEMO_USER.name,
-      role: DEMO_USER.role,
+      username: payload.username,
+      name: llc?.companyName || payload.username,
+      role: "LLC Representative",
+      llcId: llc?.llcId || payload.llcId,
+      companyName: llc?.companyName,
+      status: llc?.status,
+      plan: llc?.plan,
     },
   });
 }
