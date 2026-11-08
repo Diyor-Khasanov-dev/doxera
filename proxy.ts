@@ -7,6 +7,19 @@ export async function proxy(request: NextRequest) {
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
   const isAuthenticated = await verifySessionToken(token);
 
+  // If user accesses top-level /llc-management or /settings, redirect to /dashboard/llc-management or /dashboard/settings
+  if (pathname === "/llc-management" || pathname.startsWith("/llc-management/")) {
+    const targetUrl = new URL(pathname.replace(/^\/llc-management/, "/dashboard/llc-management"), request.url);
+    targetUrl.search = request.nextUrl.search;
+    return NextResponse.redirect(targetUrl);
+  }
+
+  if (pathname === "/settings" || pathname.startsWith("/settings/")) {
+    const targetUrl = new URL(pathname.replace(/^\/settings/, "/dashboard/settings"), request.url);
+    targetUrl.search = request.nextUrl.search;
+    return NextResponse.redirect(targetUrl);
+  }
+
   // If requesting dashboard route and not authenticated, redirect to /login
   if (pathname.startsWith("/dashboard")) {
     if (!isAuthenticated) {
