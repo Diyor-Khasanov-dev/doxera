@@ -37,7 +37,6 @@ export default function LLCManagementPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [credentialsModalOpen, setCredentialsModalOpen] = useState(false);
-  const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
 
   // Selected item for operations
@@ -151,7 +150,12 @@ export default function LLCManagementPage() {
       const res = await fetch("/api/llcs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          companyName: formData.companyName,
+          username: formData.username,
+          password: formData.password,
+          status: formData.status,
+        }),
       });
 
       const data = await res.json();
@@ -346,15 +350,6 @@ export default function LLCManagementPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => setAnalyticsModalOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[#2a2a2a] bg-[#121214] text-xs font-medium text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer"
-          >
-            <BarChart3 className="w-4 h-4 text-zinc-400" />
-            <span>Deep Analytics</span>
-          </button>
-
           <button
             type="button"
             onClick={() => {
@@ -729,169 +724,65 @@ export default function LLCManagementPage() {
             )}
 
             <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-zinc-400 mb-1 font-medium">Company Name *</label>
+              <div>
+                <label className="block text-zinc-400 mb-1 font-medium">Company Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.companyName}
+                  onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                  placeholder="e.g. Apex Holdings LLC"
+                  className="w-full h-9 px-3 rounded-lg border border-[#28282e] bg-[#141416] text-white outline-none focus:border-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-zinc-400 mb-1 font-medium">Login *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  placeholder="e.g. apexadmin"
+                  className="w-full h-9 px-3 rounded-lg border border-[#28282e] bg-[#141416] text-white font-mono outline-none focus:border-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-zinc-400 mb-1 font-medium">Password *</label>
+                <div className="relative">
                   <input
-                    type="text"
+                    type={showPassword ? "text" : "password"}
                     required
-                    value={formData.companyName}
-                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                    placeholder="e.g. Apex Holdings LLC"
-                    className="w-full h-9 px-3 rounded-lg border border-[#28282e] bg-[#141416] text-white outline-none focus:border-white"
+                    minLength={6}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="••••••••••••"
+                    className="w-full h-9 pl-3 pr-8 rounded-lg border border-[#28282e] bg-[#141416] text-white font-mono outline-none focus:border-white"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-zinc-400 mb-1 font-medium">Contact Email *</label>
-                  <input
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="legal@company.com"
-                    className="w-full h-9 px-3 rounded-lg border border-[#28282e] bg-[#141416] text-white outline-none focus:border-white"
-                  />
-                </div>
-              </div>
-
-              {/* Login Credentials Setup */}
-              <div className="p-3.5 rounded-lg border border-[#242428] bg-[#08080a] space-y-3">
-                <div className="flex items-center gap-2 text-zinc-300 font-medium">
-                  <Key className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Portal Login Credentials</span>
-                  <span className="text-[10px] text-zinc-500">(LLC will use this to sign in)</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-zinc-400 mb-1 font-medium">Login Username *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.username}
-                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                      placeholder="e.g. apexadmin"
-                      className="w-full h-9 px-3 rounded-lg border border-[#28282e] bg-[#141416] text-white font-mono outline-none focus:border-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-zinc-400 mb-1 font-medium">Initial Password *</label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        required
-                        minLength={6}
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        placeholder="••••••••••••"
-                        className="w-full h-9 pl-3 pr-8 rounded-lg border border-[#28282e] bg-[#141416] text-white font-mono outline-none focus:border-white"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
-                      >
-                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-zinc-400 mb-1 font-medium">Formation State *</label>
-                  <select
-                    value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                    className="w-full h-9 px-3 rounded-lg border border-[#28282e] bg-[#141416] text-white outline-none focus:border-white cursor-pointer"
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
                   >
-                    <option value="Delaware">Delaware</option>
-                    <option value="Wyoming">Wyoming</option>
-                    <option value="Nevada">Nevada</option>
-                    <option value="Texas">Texas</option>
-                    <option value="California">California</option>
-                    <option value="New York">New York</option>
-                    <option value="Florida">Florida</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-zinc-400 mb-1 font-medium">Plan Tier</label>
-                  <select
-                    value={formData.plan}
-                    onChange={(e) =>
-                      setFormData({ ...formData, plan: e.target.value as "Starter" | "Growth" | "Enterprise" })
-                    }
-                    className="w-full h-9 px-3 rounded-lg border border-[#28282e] bg-[#141416] text-white outline-none focus:border-white cursor-pointer"
-                  >
-                    <option value="Starter">Starter</option>
-                    <option value="Growth">Growth</option>
-                    <option value="Enterprise">Enterprise</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-zinc-400 mb-1 font-medium">Initial Status</label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({ ...formData, status: e.target.value as "active" | "pending" | "suspended" })
-                    }
-                    className="w-full h-9 px-3 rounded-lg border border-[#28282e] bg-[#141416] text-white outline-none focus:border-white cursor-pointer"
-                  >
-                    <option value="active">Active</option>
-                    <option value="pending">Pending</option>
-                    <option value="suspended">Suspended</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-zinc-400 mb-1 font-medium">EIN Number</label>
-                  <input
-                    type="text"
-                    value={formData.ein}
-                    onChange={(e) => setFormData({ ...formData, ein: e.target.value })}
-                    placeholder="e.g. 12-3456789"
-                    className="w-full h-9 px-3 rounded-lg border border-[#28282e] bg-[#141416] text-white font-mono outline-none focus:border-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-zinc-400 mb-1 font-medium">Annual Revenue ($)</label>
-                  <input
-                    type="number"
-                    value={formData.revenue}
-                    onChange={(e) => setFormData({ ...formData, revenue: Number(e.target.value) })}
-                    placeholder="150000"
-                    className="w-full h-9 px-3 rounded-lg border border-[#28282e] bg-[#141416] text-white font-mono outline-none focus:border-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-zinc-400 mb-1 font-medium">Documents</label>
-                  <input
-                    type="number"
-                    value={formData.documentsCount}
-                    onChange={(e) => setFormData({ ...formData, documentsCount: Number(e.target.value) })}
-                    className="w-full h-9 px-3 rounded-lg border border-[#28282e] bg-[#141416] text-white font-mono outline-none focus:border-white"
-                  />
+                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-zinc-400 mb-1 font-medium">Internal Notes</label>
-                <textarea
-                  rows={2}
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Additional company notes or filing instructions..."
-                  className="w-full p-2.5 rounded-lg border border-[#28282e] bg-[#141416] text-white outline-none focus:border-white"
-                />
+                <label className="block text-zinc-400 mb-1 font-medium">Status</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) =>
+                    setFormData({ ...formData, status: e.target.value as "active" | "pending" | "suspended" })
+                  }
+                  className="w-full h-9 px-3 rounded-lg border border-[#28282e] bg-[#141416] text-white outline-none focus:border-white cursor-pointer"
+                >
+                  <option value="active">active</option>
+                  <option value="pending">pending</option>
+                  <option value="suspended">suspended</option>
+                </select>
               </div>
 
               <div className="flex justify-end gap-2.5 pt-4 border-t border-[#222222]">
@@ -1184,129 +1075,6 @@ export default function LLCManagementPage() {
         </div>
       )}
 
-      {/* DEEP ANALYTICS MODAL */}
-      {analyticsModalOpen && analytics && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-3xl rounded-xl border border-[#222222] bg-[#0c0c0e] p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#222222]">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-white" />
-                <h3 className="text-base font-semibold text-white">Portfolio-Wide LLC Analytics</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAnalyticsModalOpen(false)}
-                className="text-zinc-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-6">
-              {/* Monthly Revenue Trend Bars */}
-              <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
-                  Monthly Revenue Trajectory (Last 6 Months)
-                </h4>
-                <div className="grid grid-cols-6 gap-2 h-36 items-end bg-[#08080a] p-4 rounded-xl border border-[#1f1f22]">
-                  {analytics.monthlyRevenueTotals.map((m) => {
-                    const maxAmount = Math.max(
-                      ...analytics.monthlyRevenueTotals.map((x) => x.amount),
-                      1
-                    );
-                    const heightPercent = Math.max(15, Math.round((m.amount / maxAmount) * 100));
-
-                    return (
-                      <div key={m.month} className="flex flex-col items-center gap-1.5 h-full justify-end">
-                        <span className="text-[10px] font-mono text-zinc-400">
-                          ${(m.amount / 1000).toFixed(0)}k
-                        </span>
-                        <div
-                          className="w-full bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-sm transition-all"
-                          style={{ height: `${heightPercent}%` }}
-                        />
-                        <span className="text-[10px] text-zinc-500 font-medium">{m.month}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* State & Plan distributions */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl border border-[#222222] bg-[#08080a]">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
-                    Jurisdiction Distribution
-                  </h4>
-                  <div className="space-y-2 text-xs">
-                    {analytics.stateDistribution.map((item) => (
-                      <div key={item.state} className="flex justify-between items-center py-1 border-b border-[#1b1b1e]">
-                        <span className="text-zinc-300">{item.state}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-white font-medium">{item.count}</span>
-                          <span className="text-zinc-500 text-[10px]">
-                            ({Math.round((item.count / analytics.totalLLCs) * 100)}%)
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl border border-[#222222] bg-[#08080a]">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
-                    Subscription Tier Breakdown
-                  </h4>
-                  <div className="space-y-2 text-xs">
-                    {analytics.planDistribution.map((item) => (
-                      <div key={item.plan} className="flex justify-between items-center py-1 border-b border-[#1b1b1e]">
-                        <span className="text-zinc-300">{item.plan} Tier</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-white font-medium">{item.count}</span>
-                          <span className="text-zinc-500 text-[10px]">
-                            ({Math.round((item.count / analytics.totalLLCs) * 100)}%)
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Status Health Breakdown */}
-              <div className="p-4 rounded-xl border border-[#222222] bg-[#08080a]">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
-                  Portfolio Health & Status
-                </h4>
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className="p-3 rounded-lg border border-emerald-950/40 bg-emerald-950/20">
-                    <div className="text-lg font-bold text-emerald-400">{analytics.activeLLCs}</div>
-                    <div className="text-[11px] text-zinc-400 mt-0.5">Active Entities</div>
-                  </div>
-                  <div className="p-3 rounded-lg border border-amber-950/40 bg-amber-950/20">
-                    <div className="text-lg font-bold text-amber-400">{analytics.pendingLLCs}</div>
-                    <div className="text-[11px] text-zinc-400 mt-0.5">Pending Filings</div>
-                  </div>
-                  <div className="p-3 rounded-lg border border-red-950/40 bg-red-950/20">
-                    <div className="text-lg font-bold text-red-400">{analytics.suspendedLLCs}</div>
-                    <div className="text-[11px] text-zinc-400 mt-0.5">Suspended</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-4 mt-6 border-t border-[#222222]">
-              <button
-                type="button"
-                onClick={() => setAnalyticsModalOpen(false)}
-                className="px-4 py-2 rounded-lg bg-white text-black text-xs font-medium hover:bg-zinc-200 transition-colors cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* SINGLE LLC INSPECT / ANALYTICS DRAWER */}
       {detailModalOpen && selectedLLC && (
