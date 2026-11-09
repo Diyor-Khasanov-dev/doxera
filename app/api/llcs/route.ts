@@ -63,9 +63,9 @@ export async function POST(request: Request) {
     } = body;
 
     // Validation
-    if (!companyName || !username || !password || !email || !state) {
+    if (!companyName || !username || !password) {
       return NextResponse.json(
-        { error: "Company name, username, password, email, and state are required." },
+        { error: "Company name, login username, and password are required." },
         { status: 400 }
       );
     }
@@ -90,17 +90,20 @@ export async function POST(request: Request) {
     const randomCode = Math.floor(1000 + Math.random() * 9000);
     const llcId = `LLC-${randomCode}`;
 
+    const finalEmail = (email && email.trim()) ? email.trim().toLowerCase() : `${username.trim().toLowerCase()}@portal.local`;
+    const finalState = (state && state.trim()) ? state.trim() : "Delaware";
+
     const newLLCPayload: Omit<LLCItem, "_id" | "createdAt" | "updatedAt"> = {
       companyName: companyName.trim(),
       llcId,
       username: username.trim().toLowerCase(),
       passwordHash,
-      email: email.trim().toLowerCase(),
-      state: state.trim(),
+      email: finalEmail,
+      state: finalState,
       formationDate: body.formationDate || new Date().toISOString().split("T")[0],
       ein: ein ? ein.trim() : `${Math.floor(10 + Math.random() * 89)}-${Math.floor(1000000 + Math.random() * 8999999)}`,
       plan,
-      status,
+      status: (status === "active" || status === "pending" || status === "suspended") ? status : "active",
       revenue: Number(revenue) || 0,
       documentsCount: Number(documentsCount) || 1,
       notes: notes || "",
