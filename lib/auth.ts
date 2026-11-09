@@ -9,7 +9,7 @@ export const DEMO_USER = {
 };
 
 export const AUTH_COOKIE_NAME = "doxera_auth_token";
-export const SESSION_SECRET = process.env.SESSION_SECRET || "vercel_minimalism_secret_token_key_2025";
+export const SESSION_SECRET = process.env.SESSION_SECRET || "doxera_secure_session_token_key_2025";
 
 export interface SessionPayload {
   username: string;
