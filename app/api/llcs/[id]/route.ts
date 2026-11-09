@@ -56,21 +56,25 @@ export async function PUT(
     const body = await request.json();
     const updates: Record<string, unknown> = {};
 
-    if (body.companyName) updates.companyName = body.companyName.trim();
-    if (body.email) updates.email = body.email.trim().toLowerCase();
-    if (body.state) updates.state = body.state.trim();
+    if (body.companyName && body.companyName.trim()) {
+      updates.companyName = body.companyName.trim();
+    }
+    if (body.email && body.email.trim()) updates.email = body.email.trim().toLowerCase();
+    if (body.state && body.state.trim()) updates.state = body.state.trim();
     if (body.plan) updates.plan = body.plan;
-    if (body.status) updates.status = body.status;
-    if (body.ein) updates.ein = body.ein.trim();
+    if (body.status && (body.status === "active" || body.status === "pending" || body.status === "suspended")) {
+      updates.status = body.status;
+    }
+    if (body.ein && body.ein.trim()) updates.ein = body.ein.trim();
     if (body.formationDate) updates.formationDate = body.formationDate;
-    if (body.revenue !== undefined) updates.revenue = Number(body.revenue);
-    if (body.documentsCount !== undefined) updates.documentsCount = Number(body.documentsCount);
+    if (body.revenue !== undefined && body.revenue !== "") updates.revenue = Number(body.revenue);
+    if (body.documentsCount !== undefined && body.documentsCount !== "") updates.documentsCount = Number(body.documentsCount);
     if (body.notes !== undefined) updates.notes = body.notes;
 
     // Check if updating username
-    if (body.username && body.username.trim().toLowerCase() !== existing.username.toLowerCase()) {
+    if (body.username && body.username.trim() && body.username.trim().toLowerCase() !== existing.username.toLowerCase()) {
       const conflict = await findLLCByUsername(body.username);
-      if (conflict && conflict.llcId !== existing.llcId) {
+      if (conflict && conflict.llcId !== existing.llcId && conflict._id !== existing._id) {
         return NextResponse.json(
           { error: "Username is already taken by another entity." },
           { status: 409 }
@@ -80,14 +84,14 @@ export async function PUT(
     }
 
     // Check if updating password
-    if (body.password) {
-      if (body.password.length < 6) {
+    if (body.password && body.password.trim()) {
+      if (body.password.trim().length < 6) {
         return NextResponse.json(
           { error: "Password must be at least 6 characters long." },
           { status: 400 }
         );
       }
-      updates.passwordHash = await hashPassword(body.password);
+      updates.passwordHash = await hashPassword(body.password.trim());
     }
 
     // Append audit log
