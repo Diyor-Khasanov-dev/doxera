@@ -122,7 +122,7 @@ export default function PortalPage() {
       {/* Top Portal Navbar */}
       <nav className="w-full border-b border-[#222222] bg-[#0a0a0c]/90 backdrop-blur-md sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {/* Vercel Triangle */}
+          {/* Logo Mark */}
           <svg
             className="w-5 h-5 text-white fill-current"
             viewBox="0 0 75 65"

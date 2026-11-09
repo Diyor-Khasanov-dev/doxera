@@ -8,7 +8,6 @@ import {
   Activity,
   Shield,
   Server,
-  ExternalLink,
   ChevronRight,
   CheckCircle2,
   GitBranch,
@@ -46,7 +45,7 @@ export default function DashboardClient({ user }: { user: UserProfile }) {
       <nav className="w-full border-b border-[#222222] bg-[#0a0a0a]/90 backdrop-blur-md sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2.5">
-            {/* Vercel Triangle */}
+            {/* Logo Mark */}
             <svg
               className="w-5 h-5 text-white fill-current"
               viewBox="0 0 75 65"
@@ -115,20 +114,14 @@ export default function DashboardClient({ user }: { user: UserProfile }) {
               </span>
             </div>
             <p className="text-sm text-zinc-400">
-              Your session is securely authenticated. All backend services and deployments are normal.
+              Your session is securely authenticated. All operational services are active and running normally.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <a
-              href="https://vercel.com"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2a2a] bg-[#121214] text-xs font-medium text-zinc-300 hover:text-white hover:border-zinc-600 transition-colors"
-            >
-              <span>Vercel Platform</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2a2a] bg-[#121214] text-xs font-medium text-zinc-300">
+              <span>Doxera Platform</span>
+            </span>
           </div>
         </div>
 
@@ -142,54 +135,54 @@ export default function DashboardClient({ user }: { user: UserProfile }) {
             <div className="text-xl font-semibold text-white tracking-tight">Active & Protected</div>
             <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-400">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>HTTP-Only HMAC Session</span>
+              <span>Secure Active Session</span>
             </div>
           </div>
 
           <div className="p-4 rounded-xl border border-[#222222] bg-[#0c0c0e] hover:border-zinc-700 transition-colors">
             <div className="flex items-center justify-between text-xs text-zinc-400 mb-2">
-              <span>Deployment</span>
+              <span>Service Status</span>
               <GitBranch className="w-4 h-4 text-zinc-400" />
             </div>
-            <div className="text-xl font-semibold text-white tracking-tight">Production (main)</div>
+            <div className="text-xl font-semibold text-white tracking-tight">Live & Operational</div>
             <div className="mt-2 flex items-center gap-1.5 text-xs text-zinc-400">
-              <span>commit: </span>
-              <span className="font-mono text-zinc-300">eddebb7 (HEAD)</span>
+              <span>Version: </span>
+              <span className="font-mono text-zinc-300">v1.0.0</span>
             </div>
           </div>
 
           <div className="p-4 rounded-xl border border-[#222222] bg-[#0c0c0e] hover:border-zinc-700 transition-colors">
             <div className="flex items-center justify-between text-xs text-zinc-400 mb-2">
-              <span>Server Edge Latency</span>
+              <span>System Latency</span>
               <Activity className="w-4 h-4 text-zinc-400" />
             </div>
-            <div className="text-xl font-semibold text-white tracking-tight">18 ms</div>
+            <div className="text-xl font-semibold text-white tracking-tight">Optimal</div>
             <div className="mt-2 text-xs text-zinc-400">
-              Global Edge CDN (iad1)
+              Global Network Online
             </div>
           </div>
 
           <div className="p-4 rounded-xl border border-[#222222] bg-[#0c0c0e] hover:border-zinc-700 transition-colors">
             <div className="flex items-center justify-between text-xs text-zinc-400 mb-2">
-              <span>Middleware Shield</span>
+              <span>Access Protection</span>
               <Server className="w-4 h-4 text-zinc-400" />
             </div>
             <div className="text-xl font-semibold text-white tracking-tight">Enabled</div>
             <div className="mt-2 text-xs text-zinc-400">
-              Auto-redirect unauthenticated
+              Continuous session verification
             </div>
           </div>
         </div>
 
         {/* Content Section: Project Info & Activity logs */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left 2 Cols: Production Deployment Details */}
+          {/* Left 2 Cols: Overview Details */}
           <div className="lg:col-span-2 space-y-6">
             <div className="rounded-xl border border-[#222222] bg-[#0c0c0e] p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Layers className="w-4 h-4 text-zinc-400" />
-                  <h2 className="text-sm font-medium text-white">Project Overview</h2>
+                  <h2 className="text-sm font-medium text-white">System Overview</h2>
                 </div>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-950/40 text-emerald-400 border border-emerald-800/40">
                   Ready
@@ -198,16 +191,16 @@ export default function DashboardClient({ user }: { user: UserProfile }) {
 
               <div className="space-y-4 text-xs">
                 <div className="flex justify-between py-2 border-b border-[#1f1f22]">
-                  <span className="text-zinc-400">Framework</span>
-                  <span className="font-medium text-white">Next.js 16 (App Router + Turbopack)</span>
+                  <span className="text-zinc-400">Architecture</span>
+                  <span className="font-medium text-white">Modern Enterprise Web Platform</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-[#1f1f22]">
                   <span className="text-zinc-400">Design System</span>
-                  <span className="font-medium text-white">Vercel Minimalism</span>
+                  <span className="font-medium text-white">Clean Dark Interface</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-[#1f1f22]">
-                  <span className="text-zinc-400">Route Security</span>
-                  <span className="font-mono text-zinc-300">proxy.ts + server-side session</span>
+                  <span className="text-zinc-400">Access Security</span>
+                  <span className="font-medium text-zinc-300">Protected Session Guard</span>
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-zinc-400">Active User</span>
@@ -216,48 +209,48 @@ export default function DashboardClient({ user }: { user: UserProfile }) {
               </div>
             </div>
 
-            {/* Edge Diagnostics */}
+            {/* System Status & Activity */}
             <div className="rounded-xl border border-[#222222] bg-[#0c0c0e] p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Terminal className="w-4 h-4 text-zinc-400" />
-                <h2 className="text-sm font-medium text-white">Edge Runtime Diagnostics</h2>
+                <h2 className="text-sm font-medium text-white">System Status & Activity</h2>
               </div>
               <div className="bg-black/60 rounded-lg p-3 font-mono text-[11px] text-zinc-400 border border-zinc-900 leading-relaxed">
-                <p className="text-emerald-400">&gt; GET /dashboard HTTP/2.0 200 OK</p>
-                <p className="text-zinc-500">x-vercel-cache: HIT</p>
-                <p className="text-zinc-500">x-auth-status: verified_session</p>
-                <p className="text-zinc-500">user-identity: admin (authenticated)</p>
-                <p className="text-zinc-400 mt-2">&gt; All security policies verified.</p>
+                <p className="text-emerald-400">&gt; Status: All systems operational</p>
+                <p className="text-zinc-500">Network status: Active</p>
+                <p className="text-zinc-500">Authentication: Verified session</p>
+                <p className="text-zinc-500">Current user: {user.username} (active)</p>
+                <p className="text-zinc-400 mt-2">&gt; All access policies verified.</p>
               </div>
             </div>
           </div>
 
-          {/* Right Col: Quick Stack & Resource Indicators */}
+          {/* Right Col: Architecture & Quick Actions */}
           <div className="space-y-6">
             <div className="rounded-xl border border-[#222222] bg-[#0c0c0e] p-6">
-              <h2 className="text-sm font-medium text-white mb-4">System Architecture</h2>
+              <h2 className="text-sm font-medium text-white mb-4">Core Infrastructure</h2>
               <div className="space-y-3.5 text-xs">
                 <div className="flex items-center gap-3 text-zinc-300">
                   <Cpu className="w-4 h-4 text-zinc-500" />
                   <div>
-                    <div className="font-medium text-white">Next.js Turbopack</div>
-                    <div className="text-[11px] text-zinc-500">Lightning-fast React 19 engine</div>
+                    <div className="font-medium text-white">Application Engine</div>
+                    <div className="text-[11px] text-zinc-500">High performance responsive core</div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3 text-zinc-300">
                   <Database className="w-4 h-4 text-zinc-500" />
                   <div>
-                    <div className="font-medium text-white">State Management</div>
-                    <div className="text-[11px] text-zinc-500">Secure HTTP-Only cookies</div>
+                    <div className="font-medium text-white">Data Management</div>
+                    <div className="text-[11px] text-zinc-500">Persistent structured storage</div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3 text-zinc-300">
                   <Globe className="w-4 h-4 text-zinc-500" />
                   <div>
-                    <div className="font-medium text-white">Edge Middleware</div>
-                    <div className="text-[11px] text-zinc-500">Sub-millisecond route guarding</div>
+                    <div className="font-medium text-white">Network Protection</div>
+                    <div className="text-[11px] text-zinc-500">Continuous endpoint guarding</div>
                   </div>
                 </div>
               </div>

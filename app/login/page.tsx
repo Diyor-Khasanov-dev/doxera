@@ -43,14 +43,14 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen w-full flex flex-col justify-between bg-black text-[#ededed] relative overflow-hidden font-sans selection:bg-white selection:text-black">
-      {/* Vercel minimalist ambient glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] vercel-glow pointer-events-none" />
-      <div className="absolute inset-0 vercel-grid-bg opacity-30 pointer-events-none" />
+      {/* Ambient background glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] app-ambient-glow pointer-events-none" />
+      <div className="absolute inset-0 app-grid-bg opacity-30 pointer-events-none" />
 
       {/* Top minimal header */}
       <header className="relative z-10 w-full px-6 py-6 flex items-center justify-between border-b border-[#222222]/60 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          {/* Vercel triangle logo mark */}
+          {/* Logo mark */}
           <svg
             className="w-5 h-5 text-white fill-current"
             viewBox="0 0 75 65"
@@ -188,7 +188,7 @@ export default function LoginPage() {
 
           {/* Footer note */}
           <div className="mt-6 text-center text-xs text-[#71717a]">
-            Vercel Minimalism Design System &middot; Protected Route
+            Doxera Security Management &middot; Protected Portal
           </div>
         </div>
       </main>

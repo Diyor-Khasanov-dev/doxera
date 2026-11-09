@@ -299,11 +299,11 @@ export default function LLCManagementPage() {
               <span>LLC Management & Credentials</span>
             </h1>
             <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
-              MongoDB Backed
+              Verified Records
             </span>
           </div>
           <p className="text-sm text-zinc-400">
-            Create and manage registered LLC entities, configure client portal access credentials, and analyze compliance and financial performance.
+            Create and manage registered LLC entities, configure client portal access credentials, and review compliance and financial performance.
           </p>
         </div>
 
@@ -376,7 +376,7 @@ export default function LLCManagementPage() {
                 <tr>
                   <td colSpan={4} className="py-12 text-center text-zinc-500">
                     <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-zinc-400" />
-                    <span>Loading registered LLCs from database...</span>
+                    <span>Loading registered LLCs...</span>
                   </td>
                 </tr>
               ) : filteredLLCs.length === 0 ? (
