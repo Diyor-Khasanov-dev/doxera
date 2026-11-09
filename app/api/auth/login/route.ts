@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { DEMO_USER, AUTH_COOKIE_NAME, createSessionToken } from "@/lib/auth";
+import { AUTH_COOKIE_NAME, authenticateCredentials, createSessionToken } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -13,22 +13,25 @@ export async function POST(request: Request) {
       );
     }
 
-    if (username !== DEMO_USER.username || password !== DEMO_USER.password) {
+    const authResult = await authenticateCredentials(username, password);
+
+    if (!authResult.success || !authResult.user || !authResult.role) {
       return NextResponse.json(
-        { error: "Invalid username or password. Please try again." },
+        { error: authResult.error || "Invalid username or password. Please try again." },
         { status: 401 }
       );
     }
 
-    const token = await createSessionToken(username);
+    const { role, user } = authResult;
+    const token = await createSessionToken(user.username, role, user.llcId || "");
+
+    const redirectTo = role === "admin" ? "/dashboard" : "/portal";
 
     const response = NextResponse.json({
       success: true,
-      user: {
-        username: DEMO_USER.username,
-        name: DEMO_USER.name,
-        role: DEMO_USER.role,
-      },
+      role,
+      user,
+      redirectTo,
     });
 
     response.cookies.set({
@@ -42,9 +45,10 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "An unexpected error occurred.";
     return NextResponse.json(
-      { error: "An unexpected error occurred during login." },
+      { error: message },
       { status: 500 }
     );
   }
