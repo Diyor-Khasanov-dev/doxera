@@ -1,12 +1,21 @@
+import { Suspense } from "react";
+import DashboardOverview from "./DashboardOverview";
+
 export const metadata = {
   title: "Dashboard - Doxera",
-  description: "Dashboard",
+  description: "Enterprise Executive Overview & LLC Analytics",
 };
 
 export default function DashboardPage() {
   return (
-    <div>
-      <h1 className="text-2xl font-bold tracking-tight text-white">Dashboard</h1>
-    </div>
+    <Suspense
+      fallback={
+        <div className="min-h-[400px] flex items-center justify-center text-zinc-500 font-mono text-xs">
+          Loading dashboard analytics...
+        </div>
+      }
+    >
+      <DashboardOverview />
+    </Suspense>
   );
 }

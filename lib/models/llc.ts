@@ -33,6 +33,15 @@ export interface LLCItem {
 
 export type LLCSummary = Omit<LLCItem, "passwordHash">;
 
+export interface DailyUserMetric {
+  dayLabel: string; // e.g. "Yesterday", "Today", "Tomorrow", "Thu", etc.
+  dateString: string; // YYYY-MM-DD
+  userCount: number; // e.g. 2, 3
+  activeSessions: number;
+  isToday?: boolean;
+  isTomorrow?: boolean;
+}
+
 export interface LLCAnalyticsOverview {
   totalLLCs: number;
   activeLLCs: number;
@@ -44,4 +53,5 @@ export interface LLCAnalyticsOverview {
   stateDistribution: { state: string; count: number }[];
   planDistribution: { plan: string; count: number }[];
   monthlyRevenueTotals: { month: string; amount: number }[];
+  dailyUserAnalytics: DailyUserMetric[];
 }
