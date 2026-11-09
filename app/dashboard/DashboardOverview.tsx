@@ -3,13 +3,16 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  Users,
+  Building2,
   ArrowUpRight,
   RefreshCw,
   Activity,
+  CheckCircle2,
+  Clock,
+  AlertOctagon,
   Calendar,
 } from "lucide-react";
-import { LLCAnalyticsOverview } from "@/lib/models/llc";
+import { LLCAnalyticsOverview, LLCTimelinePoint } from "@/lib/models/llc";
 
 export default function DashboardOverview() {
   const [data, setData] = useState<LLCAnalyticsOverview | null>(null);
@@ -62,18 +65,54 @@ export default function DashboardOverview() {
     };
   }, []);
 
-  const dailyUsers = data?.dailyUserAnalytics || [
-    { dayLabel: "Fri", dateString: "2025-03-07", userCount: 1, activeSessions: 4, isToday: false, isTomorrow: false },
-    { dayLabel: "Sat", dateString: "2025-03-08", userCount: 1, activeSessions: 3, isToday: false, isTomorrow: false },
-    { dayLabel: "Yesterday", dateString: "2025-03-09", userCount: 1, activeSessions: 5, isToday: false, isTomorrow: false },
-    { dayLabel: "Today", dateString: "2025-03-10", userCount: 2, activeSessions: 7, isToday: true, isTomorrow: false },
-    { dayLabel: "Tomorrow", dateString: "2025-03-11", userCount: 3, activeSessions: 11, isToday: false, isTomorrow: true },
-    { dayLabel: "Wed", dateString: "2025-03-12", userCount: 4, activeSessions: 14, isToday: false, isTomorrow: false },
-    { dayLabel: "Thu", dateString: "2025-03-13", userCount: 5, activeSessions: 18, isToday: false, isTomorrow: false },
-  ];
+  const timeline: LLCTimelinePoint[] = data?.timeline && data.timeline.length > 0
+    ? data.timeline
+    : [
+        {
+          label: "Start",
+          dateString: "Initial",
+          registeredLLCs: 0,
+          activeLLCs: 0,
+          pendingLLCs: 0,
+          suspendedLLCs: 0,
+          isCurrent: false,
+        },
+        {
+          label: "Apr '23",
+          dateString: "2023-04-12",
+          registeredLLCs: 1,
+          activeLLCs: 1,
+          pendingLLCs: 0,
+          suspendedLLCs: 0,
+          isCurrent: false,
+        },
+        {
+          label: "Sep '23",
+          dateString: "2023-09-18",
+          registeredLLCs: 2,
+          activeLLCs: 2,
+          pendingLLCs: 0,
+          suspendedLLCs: 0,
+          isCurrent: false,
+        },
+        {
+          label: "Feb '24",
+          dateString: "2024-02-05",
+          registeredLLCs: 3,
+          activeLLCs: 2,
+          pendingLLCs: 1,
+          suspendedLLCs: 0,
+          isCurrent: true,
+        },
+      ];
 
-  const maxUserCount = Math.max(...dailyUsers.map((d) => d.userCount), 6);
-  const minUserCount = 0;
+  const totalRegistered = data?.totalLLCs ?? (timeline.length > 0 ? timeline[timeline.length - 1].registeredLLCs : 0);
+  const activeCount = data?.activeLLCs ?? (timeline.length > 0 ? timeline[timeline.length - 1].activeLLCs : 0);
+  const pendingCount = data?.pendingLLCs ?? (timeline.length > 0 ? timeline[timeline.length - 1].pendingLLCs : 0);
+  const suspendedCount = data?.suspendedLLCs ?? (timeline.length > 0 ? timeline[timeline.length - 1].suspendedLLCs : 0);
+
+  const maxVal = Math.max(...timeline.map((d) => d.registeredLLCs), 4);
+  const minVal = 0;
 
   // SVG Chart dimensions and coordinates
   const svgWidth = 700;
@@ -84,16 +123,16 @@ export default function DashboardOverview() {
   const chartWidth = svgWidth - paddingX * 2;
   const chartHeight = svgHeight - paddingTop - paddingBottom;
 
-  const points = dailyUsers.map((item, idx) => {
-    const x = paddingX + (idx / (dailyUsers.length - 1)) * chartWidth;
-    const yRange = maxUserCount - minUserCount;
-    const y = paddingTop + chartHeight - ((item.userCount - minUserCount) / (yRange || 1)) * chartHeight;
+  const points = timeline.map((item, idx) => {
+    const denom = timeline.length > 1 ? timeline.length - 1 : 1;
+    const x = paddingX + (idx / denom) * chartWidth;
+    const yRange = maxVal - minVal;
+    const y = paddingTop + chartHeight - ((item.registeredLLCs - minVal) / (yRange || 1)) * chartHeight;
     return { x, y, item, idx };
   });
 
   const linePathD = points.reduce((acc, curr, index) => {
     if (index === 0) return `M ${curr.x} ${curr.y}`;
-    // Catmull-Rom or smooth cubic bezier curve
     const prev = points[index - 1];
     const cp1x = prev.x + (curr.x - prev.x) / 2;
     const cp1y = prev.y;
@@ -104,11 +143,10 @@ export default function DashboardOverview() {
 
   const areaPathD = `${linePathD} L ${points[points.length - 1].x} ${paddingTop + chartHeight} L ${points[0].x} ${paddingTop + chartHeight} Z`;
 
-  // Horizontal guide lines (0, 2, 4, 6 or calculated steps)
-  const yTicks = [0, Math.round(maxUserCount / 2), maxUserCount];
+  // Horizontal guide lines
+  const yTicks = [0, Math.round(maxVal / 2), maxVal];
 
-  const todayMetric = dailyUsers.find((d) => d.isToday) || dailyUsers[3];
-  const tomorrowMetric = dailyUsers.find((d) => d.isTomorrow) || dailyUsers[4];
+  const activeRatio = totalRegistered > 0 ? Math.round((activeCount / totalRegistered) * 100) : 0;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -124,7 +162,7 @@ export default function DashboardOverview() {
             </span>
           </div>
           <p className="text-sm text-zinc-400">
-            Real-time entity operations and LLC user trajectory.
+            Real-time entity operations, LLC registration trajectory, and status management.
           </p>
         </div>
 
@@ -162,31 +200,45 @@ export default function DashboardOverview() {
         </div>
       )}
 
-      {/* TOP CARD: TOTALLY REGISTERED USERS */}
+      {/* TOP CARD: TOTALLY REGISTERED USERS / LLC ENTITIES */}
       <div className="p-6 rounded-xl border border-[#222222] bg-[#0c0c0e] hover:border-zinc-700 transition-all relative overflow-hidden group shadow-lg">
         <div className="flex items-center justify-between text-xs text-zinc-400 mb-3">
-          <span className="text-sm font-medium text-zinc-300">Totally Registered Users</span>
+          <span className="text-sm font-medium text-zinc-300">Totally Registered LLCs</span>
           <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 group-hover:text-white transition-colors">
-            <Users className="w-5 h-5" />
+            <Building2 className="w-5 h-5" />
           </div>
         </div>
         <div className="text-4xl font-extrabold text-white tracking-tight font-mono">
           {isLoading ? (
             <span className="text-zinc-600">--</span>
           ) : (
-            data?.totalLLCs ?? 0
+            totalRegistered
           )}
         </div>
-        <div className="mt-4 flex items-center justify-between text-xs pt-3 border-t border-[#18181b]">
-          <span className="text-zinc-500">Active Status</span>
-          <span className="text-emerald-400 font-medium flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            {data?.activeLLCs ?? 0} Active Registered Entities ({data?.totalLLCs ? Math.round(((data.activeLLCs ?? 0) / data.totalLLCs) * 100) : 0}%)
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs pt-3 border-t border-[#18181b]">
+          <div className="flex items-center gap-4">
+            <span className="text-emerald-400 font-medium flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              {activeCount} Active ({activeRatio}%)
+            </span>
+            <span className="text-amber-400 font-medium flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              {pendingCount} Pending
+            </span>
+            {suspendedCount > 0 && (
+              <span className="text-red-400 font-medium flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-red-400" />
+                {suspendedCount} Suspended
+              </span>
+            )}
+          </div>
+          <span className="text-zinc-500 font-mono text-[11px]">
+            Managed via LLC Management
           </span>
         </div>
       </div>
 
-      {/* LINE CHART: LLCs' ANALYTICS */}
+      {/* LINE CHART: LLCs' REAL MANAGEMENT ANALYTICS */}
       <div className="rounded-xl border border-[#222222] bg-[#0c0c0e] p-6 shadow-2xl space-y-6">
         {/* Chart Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#1f1f22]">
@@ -196,18 +248,22 @@ export default function DashboardOverview() {
               <h2 className="text-base font-semibold text-white">LLCs&apos; Analytics</h2>
             </div>
             <p className="text-xs text-zinc-400">
-              User trajectory over time: today ({todayMetric?.userCount ?? 2} users), tomorrow ({tomorrowMetric?.userCount ?? 3} users), and growth projection.
+              Real LLC entity management and registration trajectory across all corporate records.
             </p>
           </div>
 
           <div className="flex items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
-              <span className="text-zinc-400">Recorded / Today</span>
+              <span className="text-zinc-400">Active Records ({activeCount})</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+              <span className="text-zinc-400">Pending Review ({pendingCount})</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.6)]" />
-              <span className="text-zinc-400">Projected / Tomorrow</span>
+              <span className="text-zinc-400">Total Registered ({totalRegistered})</span>
             </div>
           </div>
         </div>
@@ -217,10 +273,10 @@ export default function DashboardOverview() {
           <div className="flex items-center justify-between text-xs text-zinc-400 mb-4">
             <span className="flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-zinc-500" />
-              <span>Timeline Activity Line Chart</span>
+              <span>Entity Management Trajectory Chart</span>
             </span>
             <span className="font-mono text-xs text-zinc-500">
-              Peak: {maxUserCount} users
+              Peak: {maxVal} LLCs
             </span>
           </div>
 
@@ -255,7 +311,7 @@ export default function DashboardOverview() {
 
               {/* Horizontal grid lines & Y labels */}
               {yTicks.map((val, idx) => {
-                const y = paddingTop + chartHeight - ((val - minUserCount) / (maxUserCount - minUserCount || 1)) * chartHeight;
+                const y = paddingTop + chartHeight - ((val - minVal) / (maxVal - minVal || 1)) * chartHeight;
                 return (
                   <g key={idx}>
                     <line
@@ -301,11 +357,9 @@ export default function DashboardOverview() {
               {/* Interactive Data Points on the line */}
               {points.map(({ x, y, item, idx }) => {
                 const isHovered = hoveredIndex === idx;
-                const pointColor = item.isToday
+                const pointColor = item.isCurrent
                   ? "#34d399"
-                  : item.isTomorrow
-                  ? "#60a5fa"
-                  : "#a1a1aa";
+                  : "#60a5fa";
 
                 return (
                   <g key={idx} className="cursor-pointer">
@@ -320,13 +374,13 @@ export default function DashboardOverview() {
                       strokeDasharray="2 2"
                     />
 
-                    {/* Outer ring on hover/today/tomorrow */}
-                    {(isHovered || item.isToday || item.isTomorrow) && (
+                    {/* Outer ring on hover/current */}
+                    {(isHovered || item.isCurrent) && (
                       <circle
                         cx={x}
                         y={y}
                         r={isHovered ? 8 : 6}
-                        fill={item.isToday ? "#10b981" : item.isTomorrow ? "#3b82f6" : "#71717a"}
+                        fill={item.isCurrent ? "#10b981" : "#3b82f6"}
                         fillOpacity="0.25"
                       />
                     )}
@@ -367,17 +421,19 @@ export default function DashboardOverview() {
                 }}
               >
                 <div className="font-semibold flex items-center gap-1.5 text-zinc-100">
-                  <span>{points[hoveredIndex].item.dayLabel}</span>
+                  <span>{points[hoveredIndex].item.label}</span>
                   <span className="text-[10px] text-zinc-400 font-mono">
                     ({points[hoveredIndex].item.dateString})
                   </span>
                 </div>
                 <div className="text-emerald-400 font-mono font-bold mt-0.5">
-                  {points[hoveredIndex].item.userCount}{" "}
-                  {points[hoveredIndex].item.userCount === 1 ? "User" : "Users"}
+                  {points[hoveredIndex].item.registeredLLCs}{" "}
+                  {points[hoveredIndex].item.registeredLLCs === 1 ? "LLC Registered" : "LLCs Registered"}
                 </div>
-                <div className="text-[10px] text-zinc-400">
-                  {points[hoveredIndex].item.activeSessions} active sessions
+                <div className="text-[10px] text-zinc-400 flex items-center gap-2 mt-0.5">
+                  <span className="text-emerald-400">{points[hoveredIndex].item.activeLLCs} active</span>
+                  <span>&middot;</span>
+                  <span className="text-amber-400">{points[hoveredIndex].item.pendingLLCs} pending</span>
                 </div>
               </div>
             )}
@@ -385,37 +441,86 @@ export default function DashboardOverview() {
 
           {/* X-axis Labels */}
           <div className="flex items-center justify-between gap-2 pt-3 text-xs border-t border-[#1f1f24] mt-2">
-            {dailyUsers.map((item, idx) => (
+            {timeline.map((item, idx) => (
               <div key={idx} className="flex-1 text-center">
                 <span
                   className={`block text-[11px] font-medium transition-colors ${
-                    item.isToday
+                    item.isCurrent
                       ? "text-emerald-400 font-bold"
-                      : item.isTomorrow
-                      ? "text-blue-400 font-bold"
                       : "text-zinc-400"
                   }`}
                 >
-                  {item.dayLabel}
+                  {item.label}
                 </span>
                 <span className="text-[10px] text-zinc-600 font-mono block">
-                  {item.dateString.slice(5)}
+                  {item.dateString}
                 </span>
               </div>
             ))}
           </div>
         </div>
 
+        {/* Real Status Breakdown Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+          <div className="p-3.5 rounded-lg border border-[#1e1e24] bg-[#0a0a0c] flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-md bg-emerald-950/40 border border-emerald-800/40 flex items-center justify-center text-emerald-400">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-white">Active LLCs</div>
+                <div className="text-[11px] text-zinc-500">Fully compliant & operational</div>
+              </div>
+            </div>
+            <span className="font-mono text-base font-bold text-emerald-400">
+              {activeCount}
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-lg border border-[#1e1e24] bg-[#0a0a0c] flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-md bg-amber-950/40 border border-amber-800/40 flex items-center justify-center text-amber-400">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-white">Pending Approval</div>
+                <div className="text-[11px] text-zinc-500">Awaiting state confirmation</div>
+              </div>
+            </div>
+            <span className="font-mono text-base font-bold text-amber-400">
+              {pendingCount}
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-lg border border-[#1e1e24] bg-[#0a0a0c] flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-md bg-red-950/40 border border-red-800/40 flex items-center justify-center text-red-400">
+                <AlertOctagon className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-white">Suspended LLCs</div>
+                <div className="text-[11px] text-zinc-500">Requires administrative action</div>
+              </div>
+            </div>
+            <span className="font-mono text-base font-bold text-zinc-300">
+              {suspendedCount}
+            </span>
+          </div>
+        </div>
+
         {/* Footnote details */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-zinc-500 gap-2 px-1">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-zinc-500 gap-2 px-1 pt-1 border-t border-[#1a1a1e]">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span>Today records <strong className="text-white">2 active users</strong> across registered corporate accounts.</span>
+            <span>Currently tracking <strong className="text-white">{totalRegistered} total corporate entities</strong> across Delaware, Wyoming, and Texas jurisdictions.</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-blue-400" />
-            <span>Tomorrow projects <strong className="text-white">3 active users</strong> following planned onboarding.</span>
-          </div>
+          <Link
+            href="/dashboard/llc-management"
+            className="text-emerald-400 hover:underline flex items-center gap-1 font-medium"
+          >
+            <span>Open LLC Management</span>
+            <ArrowUpRight className="w-3 h-3" />
+          </Link>
         </div>
       </div>
     </div>

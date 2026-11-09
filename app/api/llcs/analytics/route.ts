@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, parseAndVerifySessionToken } from "@/lib/auth";
 import { getAllLLCs } from "@/lib/llcStore";
-import { LLCAnalyticsOverview } from "@/lib/models/llc";
+import { LLCAnalyticsOverview, LLCTimelinePoint, LLCStatusDistribution } from "@/lib/models/llc";
 
-// GET /api/llcs/analytics - Aggregated statistics across all LLCs
+// GET /api/llcs/analytics - Real aggregated LLC management statistics across all registered LLCs
 export async function GET() {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
@@ -68,56 +68,103 @@ export async function GET() {
     count,
   }));
 
-  // Calculate daily user activity and projections across registered LLC accounts
-  // "today - 2 user, tomorrow - 3 and like this"
-  const now = new Date();
-  const dayOffsets = [-3, -2, -1, 0, 1, 2, 3];
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const statusDistribution: LLCStatusDistribution[] = [
+    {
+      status: "active",
+      label: "Active Entities",
+      count: activeLLCs,
+      percentage: totalLLCs > 0 ? Math.round((activeLLCs / totalLLCs) * 100) : 0,
+    },
+    {
+      status: "pending",
+      label: "Pending Review",
+      count: pendingLLCs,
+      percentage: totalLLCs > 0 ? Math.round((pendingLLCs / totalLLCs) * 100) : 0,
+    },
+    {
+      status: "suspended",
+      label: "Suspended",
+      count: suspendedLLCs,
+      percentage: totalLLCs > 0 ? Math.round((suspendedLLCs / totalLLCs) * 100) : 0,
+    },
+  ];
 
-  // Baseline active LLC count acts as the current day anchor
-  const activeCount = Math.max(activeLLCs, 2);
+  // Build real LLC management timeline from actual LLC createdAt registration timestamps
+  // Sort entities chronologically ascending
+  const sortedLLCs = [...llcs].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
 
-  const dailyUserAnalytics = dayOffsets.map((offset) => {
-    const targetDate = new Date(now);
-    targetDate.setDate(now.getDate() + offset);
-    const dateString = targetDate.toISOString().split("T")[0];
+  const timeline: LLCTimelinePoint[] = [];
 
-    let dayLabel: string;
-    let isToday = false;
-    let isTomorrow = false;
+  if (sortedLLCs.length === 0) {
+    const todayStr = new Date().toISOString().split("T")[0];
+    timeline.push({
+      label: "Today",
+      dateString: todayStr,
+      registeredLLCs: 0,
+      activeLLCs: 0,
+      pendingLLCs: 0,
+      suspendedLLCs: 0,
+      isCurrent: true,
+    });
+  } else {
+    // Generate cumulative registration curve based on real entities
+    let runningActive = 0;
+    let runningPending = 0;
+    let runningSuspended = 0;
 
-    if (offset === -1) {
-      dayLabel = "Yesterday";
-    } else if (offset === 0) {
-      dayLabel = "Today";
-      isToday = true;
-    } else if (offset === 1) {
-      dayLabel = "Tomorrow";
-      isTomorrow = true;
-    } else {
-      dayLabel = dayNames[targetDate.getDay()];
+    sortedLLCs.forEach((item, index) => {
+      if (item.status === "active") runningActive++;
+      else if (item.status === "pending") runningPending++;
+      else if (item.status === "suspended") runningSuspended++;
+
+      const dateObj = new Date(item.createdAt);
+      const dateString = isNaN(dateObj.getTime())
+        ? new Date().toISOString().split("T")[0]
+        : dateObj.toISOString().split("T")[0];
+
+      const monthName = isNaN(dateObj.getTime())
+        ? "Entity"
+        : dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+      timeline.push({
+        label: `${monthName} (${item.llcId})`,
+        dateString,
+        registeredLLCs: index + 1,
+        activeLLCs: runningActive,
+        pendingLLCs: runningPending,
+        suspendedLLCs: runningSuspended,
+        isCurrent: index === sortedLLCs.length - 1,
+      });
+    });
+
+    // If only 1 or 2 entities exist, prepend an origin point for clean line visualization
+    if (timeline.length === 1) {
+      timeline.unshift({
+        label: "Start",
+        dateString: "Initial",
+        registeredLLCs: 0,
+        activeLLCs: 0,
+        pendingLLCs: 0,
+        suspendedLLCs: 0,
+        isCurrent: false,
+      });
     }
+  }
 
-    // Progression: Today -> activeCount (2), Tomorrow -> activeCount + 1 (3), then continuing upward
-    // Past days taper down naturally
-    let count: number;
-    if (offset < 0) {
-      count = Math.max(1, activeCount + offset);
-    } else if (offset === 0) {
-      count = activeCount; // 2
-    } else {
-      count = activeCount + offset; // offset=1 -> 3, offset=2 -> 4, offset=3 -> 5
-    }
-
-    return {
-      dayLabel,
-      dateString,
-      userCount: count,
-      activeSessions: Math.round(count * 3.5),
-      isToday,
-      isTomorrow,
-    };
-  });
+  // Recent LLCs for management reference
+  const recentLLCs = sortedLLCs
+    .slice()
+    .reverse()
+    .slice(0, 5)
+    .map((item) => ({
+      _id: item._id,
+      companyName: item.companyName,
+      llcId: item.llcId,
+      status: item.status,
+      createdAt: item.createdAt,
+    }));
 
   const overview: LLCAnalyticsOverview = {
     totalLLCs,
@@ -127,10 +174,12 @@ export async function GET() {
     totalRevenue,
     averageCompliance,
     totalFilings,
+    statusDistribution,
+    timeline,
     stateDistribution,
     planDistribution,
     monthlyRevenueTotals,
-    dailyUserAnalytics,
+    recentLLCs,
   };
 
   return NextResponse.json({
