@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME, parseAndVerifySessionToken } from "@/lib/auth";
 import { findLLCById, findLLCByUsername } from "@/lib/llcStore";
+import { getAdminUser } from "@/lib/adminStore";
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -13,12 +14,13 @@ export async function GET() {
   }
 
   if (payload.role === "admin") {
+    const admin = await getAdminUser();
     return NextResponse.json({
       authenticated: true,
       role: "admin",
       user: {
-        username: payload.username,
-        name: payload.name || "Admin User",
+        username: admin.username || payload.username,
+        name: admin.name || payload.name || "Admin User",
         role: "Administrator",
       },
     });
