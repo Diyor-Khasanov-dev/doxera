@@ -68,56 +68,94 @@ export async function GET() {
     count,
   }));
 
-  // Calculate daily user activity and projections across registered LLC accounts
-  // "today - 2 user, tomorrow - 3 and like this"
+  // Calculate REAL daily LLC activity across registered LLC accounts
+  // Tracks exactly when LLCs were registered or performed activities, and how many LLCs were active/registered
   const now = new Date();
-  const dayOffsets = [-3, -2, -1, 0, 1, 2, 3];
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  // Baseline active LLC count acts as the current day anchor
-  const activeCount = Math.max(activeLLCs, 2);
+  // Generate 7-day chronological historical timeline up to today (i = 6 down to 0)
+  const activityTimeline = [];
 
-  const dailyUserAnalytics = dayOffsets.map((offset) => {
+  for (let i = 6; i >= 0; i--) {
     const targetDate = new Date(now);
-    targetDate.setDate(now.getDate() + offset);
+    targetDate.setDate(now.getDate() - i);
     const dateString = targetDate.toISOString().split("T")[0];
 
-    let dayLabel: string;
-    let isToday = false;
-    let isTomorrow = false;
-
-    if (offset === -1) {
+    const isToday = i === 0;
+    const isYesterday = i === 1;
+    let dayLabel = dayNames[targetDate.getDay()];
+    if (isYesterday) {
       dayLabel = "Yesterday";
-    } else if (offset === 0) {
+    } else if (isToday) {
       dayLabel = "Today";
-      isToday = true;
-    } else if (offset === 1) {
-      dayLabel = "Tomorrow";
-      isTomorrow = true;
-    } else {
-      dayLabel = dayNames[targetDate.getDay()];
     }
 
-    // Progression: Today -> activeCount (2), Tomorrow -> activeCount + 1 (3), then continuing upward
-    // Past days taper down naturally
-    let count: number;
-    if (offset < 0) {
-      count = Math.max(1, activeCount + offset);
-    } else if (offset === 0) {
-      count = activeCount; // 2
-    } else {
-      count = activeCount + offset; // offset=1 -> 3, offset=2 -> 4, offset=3 -> 5
+    // Count real LLC registrations created on or before this day
+    const endOfDayIso = `${dateString}T23:59:59.999Z`;
+
+    const existingLLCsUpToDay = llcs.filter((item) => {
+      if (!item.createdAt) return true;
+      return item.createdAt <= endOfDayIso;
+    });
+
+    const activeLLCsUpToDay = existingLLCsUpToDay.filter(
+      (item) => item.status === "active"
+    ).length;
+
+    // Real new LLC registrations created on this exact date
+    const newRegistrationsList = llcs.filter((item) => {
+      const createdDateOnly = item.createdAt ? item.createdAt.split("T")[0] : "";
+      return createdDateOnly === dateString;
+    });
+    const newRegistrations = newRegistrationsList.length;
+
+    // Real activity occurrences on this date (audit logs + profile updates + creations)
+    const activities: { companyName: string; action: string; time?: string }[] = [];
+
+    for (const item of llcs) {
+      // Audit log entries matching this date
+      if (item.analytics?.auditLogs && Array.isArray(item.analytics.auditLogs)) {
+        for (const log of item.analytics.auditLogs) {
+          const logDate = log.timestamp ? log.timestamp.split("T")[0] : "";
+          if (logDate === dateString) {
+            activities.push({
+              companyName: item.companyName,
+              action: log.action || "Audit activity recorded",
+              time: log.timestamp.includes("T") ? log.timestamp.split("T")[1].slice(0, 5) : undefined,
+            });
+          }
+        }
+      }
+
+      // New registration action
+      if (item.createdAt && item.createdAt.split("T")[0] === dateString) {
+        if (!activities.some((a) => a.companyName === item.companyName && a.action.includes("Created"))) {
+          activities.push({
+            companyName: item.companyName,
+            action: "Entity Registered & Account Provisioned",
+            time: item.createdAt.includes("T") ? item.createdAt.split("T")[1].slice(0, 5) : undefined,
+          });
+        }
+      }
     }
 
-    return {
+    const activityCount = activities.length;
+    const totalCount = existingLLCsUpToDay.length;
+
+    activityTimeline.push({
       dayLabel,
       dateString,
-      userCount: count,
-      activeSessions: Math.round(count * 3.5),
+      totalLLCs: totalCount,
+      activeLLCs: activeLLCsUpToDay,
+      newRegistrations,
+      activityCount,
       isToday,
-      isTomorrow,
-    };
-  });
+      activities,
+      userCount: totalCount,
+      activeSessions: activeLLCsUpToDay,
+      isTomorrow: false,
+    });
+  }
 
   const overview: LLCAnalyticsOverview = {
     totalLLCs,
@@ -130,7 +168,8 @@ export async function GET() {
     stateDistribution,
     planDistribution,
     monthlyRevenueTotals,
-    dailyUserAnalytics,
+    dailyUserAnalytics: activityTimeline,
+    activityTimeline,
   };
 
   return NextResponse.json({

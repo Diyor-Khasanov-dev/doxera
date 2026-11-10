@@ -62,18 +62,16 @@ export default function DashboardOverview() {
     };
   }, []);
 
-  const dailyUsers = data?.dailyUserAnalytics || [
-    { dayLabel: "Fri", dateString: "2025-03-07", userCount: 1, activeSessions: 4, isToday: false, isTomorrow: false },
-    { dayLabel: "Sat", dateString: "2025-03-08", userCount: 1, activeSessions: 3, isToday: false, isTomorrow: false },
-    { dayLabel: "Yesterday", dateString: "2025-03-09", userCount: 1, activeSessions: 5, isToday: false, isTomorrow: false },
-    { dayLabel: "Today", dateString: "2025-03-10", userCount: 2, activeSessions: 7, isToday: true, isTomorrow: false },
-    { dayLabel: "Tomorrow", dateString: "2025-03-11", userCount: 3, activeSessions: 11, isToday: false, isTomorrow: true },
-    { dayLabel: "Wed", dateString: "2025-03-12", userCount: 4, activeSessions: 14, isToday: false, isTomorrow: false },
-    { dayLabel: "Thu", dateString: "2025-03-13", userCount: 5, activeSessions: 18, isToday: false, isTomorrow: false },
-  ];
+  const activityList = data?.activityTimeline || data?.dailyUserAnalytics || [];
 
-  const maxUserCount = Math.max(...dailyUsers.map((d) => d.userCount), 6);
-  const minUserCount = 0;
+  // Determine peak LLC count for Y axis scale
+  const rawMaxLLC = Math.max(
+    ...activityList.map((d) => Math.max(d.totalLLCs ?? 0, d.activityCount ?? 0, d.activeLLCs ?? 0)),
+    data?.totalLLCs ?? 0,
+    3
+  );
+  const maxLLCCount = Math.max(rawMaxLLC, 4);
+  const minLLCCount = 0;
 
   // SVG Chart dimensions and coordinates
   const svgWidth = 700;
@@ -84,31 +82,40 @@ export default function DashboardOverview() {
   const chartWidth = svgWidth - paddingX * 2;
   const chartHeight = svgHeight - paddingTop - paddingBottom;
 
-  const points = dailyUsers.map((item, idx) => {
-    const x = paddingX + (idx / (dailyUsers.length - 1)) * chartWidth;
-    const yRange = maxUserCount - minUserCount;
-    const y = paddingTop + chartHeight - ((item.userCount - minUserCount) / (yRange || 1)) * chartHeight;
+  const points = activityList.map((item, idx) => {
+    const divisor = activityList.length > 1 ? activityList.length - 1 : 1;
+    const x = paddingX + (idx / divisor) * chartWidth;
+    const yRange = maxLLCCount - minLLCCount;
+    const val = item.totalLLCs ?? 0;
+    const y = paddingTop + chartHeight - ((val - minLLCCount) / (yRange || 1)) * chartHeight;
     return { x, y, item, idx };
   });
 
-  const linePathD = points.reduce((acc, curr, index) => {
-    if (index === 0) return `M ${curr.x} ${curr.y}`;
-    // Catmull-Rom or smooth cubic bezier curve
-    const prev = points[index - 1];
-    const cp1x = prev.x + (curr.x - prev.x) / 2;
-    const cp1y = prev.y;
-    const cp2x = prev.x + (curr.x - prev.x) / 2;
-    const cp2y = curr.y;
-    return `${acc} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`;
-  }, "");
+  const linePathD = points.length === 0
+    ? `M ${paddingX} ${paddingTop + chartHeight} L ${paddingX + chartWidth} ${paddingTop + chartHeight}`
+    : points.length === 1
+    ? `M ${points[0].x} ${points[0].y} L ${points[0].x + chartWidth} ${points[0].y}`
+    : points.reduce((acc, curr, index) => {
+        if (index === 0) return `M ${curr.x} ${curr.y}`;
+        const prev = points[index - 1];
+        const cp1x = prev.x + (curr.x - prev.x) / 2;
+        const cp1y = prev.y;
+        const cp2x = prev.x + (curr.x - prev.x) / 2;
+        const cp2y = curr.y;
+        return `${acc} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`;
+      }, "");
 
-  const areaPathD = `${linePathD} L ${points[points.length - 1].x} ${paddingTop + chartHeight} L ${points[0].x} ${paddingTop + chartHeight} Z`;
+  const lastPointX = points.length > 0 ? points[points.length - 1].x : paddingX + chartWidth;
+  const firstPointX = points.length > 0 ? points[0].x : paddingX;
+  const areaPathD = `${linePathD} L ${lastPointX} ${paddingTop + chartHeight} L ${firstPointX} ${paddingTop + chartHeight} Z`;
 
-  // Horizontal guide lines (0, 2, 4, 6 or calculated steps)
-  const yTicks = [0, Math.round(maxUserCount / 2), maxUserCount];
+  // Horizontal guide lines
+  const midPoint = Math.ceil(maxLLCCount / 2);
+  const yTicks = Array.from(new Set([0, midPoint, maxLLCCount])).sort((a, b) => a - b);
 
-  const todayMetric = dailyUsers.find((d) => d.isToday) || dailyUsers[3];
-  const tomorrowMetric = dailyUsers.find((d) => d.isTomorrow) || dailyUsers[4];
+  const todayMetric = activityList.find((d) => d.isToday) || (activityList.length > 0 ? activityList[activityList.length - 1] : null);
+  const totalRegisteredNow = data?.totalLLCs ?? 0;
+  const totalActiveNow = data?.activeLLCs ?? 0;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -186,28 +193,28 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      {/* LINE CHART: LLCs' ANALYTICS */}
+      {/* LINE CHART: REAL LLCs' ACTIVITY */}
       <div className="rounded-xl border border-[#222222] bg-[#0c0c0e] p-6 shadow-2xl space-y-6">
         {/* Chart Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#1f1f22]">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Activity className="w-4 h-4 text-emerald-400" />
-              <h2 className="text-base font-semibold text-white">LLCs&apos; Analytics</h2>
+              <h2 className="text-base font-semibold text-white">LLCs&apos; Activity Timeline</h2>
             </div>
             <p className="text-xs text-zinc-400">
-              User trajectory over time: today ({todayMetric?.userCount ?? 2} users), tomorrow ({tomorrowMetric?.userCount ?? 3} users), and growth projection.
+              Real LLC registrations and entity activity over time &middot; Current: {totalRegisteredNow} {totalRegisteredNow === 1 ? "LLC" : "LLCs"} ({totalActiveNow} active).
             </p>
           </div>
 
           <div className="flex items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
-              <span className="text-zinc-400">Recorded / Today</span>
+              <span className="text-zinc-400">Total Registered Entities</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.6)]" />
-              <span className="text-zinc-400">Projected / Tomorrow</span>
+              <span className="text-zinc-400">Active LLCs</span>
             </div>
           </div>
         </div>
@@ -217,10 +224,10 @@ export default function DashboardOverview() {
           <div className="flex items-center justify-between text-xs text-zinc-400 mb-4">
             <span className="flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-zinc-500" />
-              <span>Timeline Activity Line Chart</span>
+              <span>Entity Trajectory & Registration Timeline</span>
             </span>
             <span className="font-mono text-xs text-zinc-500">
-              Peak: {maxUserCount} users
+              Peak: {maxLLCCount} LLCs
             </span>
           </div>
 
@@ -255,7 +262,7 @@ export default function DashboardOverview() {
 
               {/* Horizontal grid lines & Y labels */}
               {yTicks.map((val, idx) => {
-                const y = paddingTop + chartHeight - ((val - minUserCount) / (maxUserCount - minUserCount || 1)) * chartHeight;
+                const y = paddingTop + chartHeight - ((val - minLLCCount) / (maxLLCCount - minLLCCount || 1)) * chartHeight;
                 return (
                   <g key={idx}>
                     <line
@@ -303,7 +310,7 @@ export default function DashboardOverview() {
                 const isHovered = hoveredIndex === idx;
                 const pointColor = item.isToday
                   ? "#34d399"
-                  : item.isTomorrow
+                  : (item.newRegistrations && item.newRegistrations > 0)
                   ? "#60a5fa"
                   : "#a1a1aa";
 
@@ -320,13 +327,13 @@ export default function DashboardOverview() {
                       strokeDasharray="2 2"
                     />
 
-                    {/* Outer ring on hover/today/tomorrow */}
-                    {(isHovered || item.isToday || item.isTomorrow) && (
+                    {/* Outer ring on hover/today */}
+                    {(isHovered || item.isToday || (item.newRegistrations && item.newRegistrations > 0)) && (
                       <circle
                         cx={x}
                         y={y}
                         r={isHovered ? 8 : 6}
-                        fill={item.isToday ? "#10b981" : item.isTomorrow ? "#3b82f6" : "#71717a"}
+                        fill={item.isToday ? "#10b981" : "#3b82f6"}
                         fillOpacity="0.25"
                       />
                     )}
@@ -339,7 +346,7 @@ export default function DashboardOverview() {
                       fill={pointColor}
                       stroke="#08080a"
                       strokeWidth="2"
-                      className="transition-all duration-200"
+                      className="transition-all duration-200 pointer-events-none"
                     />
 
                     {/* Hit area for easier hover */}
@@ -348,6 +355,7 @@ export default function DashboardOverview() {
                       y={y}
                       r={20}
                       fill="transparent"
+                      className="chart-hit-point cursor-pointer"
                       onMouseEnter={() => setHoveredIndex(idx)}
                       onMouseLeave={() => setHoveredIndex(null)}
                     />
@@ -359,25 +367,50 @@ export default function DashboardOverview() {
             {/* Floating tooltip when point is hovered */}
             {hoveredIndex !== null && points[hoveredIndex] && (
               <div
-                className="absolute z-20 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700 text-white text-xs shadow-2xl pointer-events-none transition-all duration-150 transform -translate-x-1/2 -translate-y-full"
+                className={`absolute z-20 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700 text-white text-xs shadow-2xl pointer-events-none transition-all duration-150 min-w-[170px] ${
+                  hoveredIndex >= points.length - 2
+                    ? "-translate-x-full -translate-y-full ml-[-12px]"
+                    : hoveredIndex <= 1
+                    ? "translate-x-0 -translate-y-full ml-3"
+                    : "-translate-x-1/2 -translate-y-full"
+                }`}
                 style={{
                   left: `${(points[hoveredIndex].x / svgWidth) * 100}%`,
-                  top: `${(points[hoveredIndex].y / svgHeight) * 100}%`,
+                  top: `${Math.max(25, (points[hoveredIndex].y / svgHeight) * 100)}%`,
                   marginTop: "-12px",
                 }}
               >
-                <div className="font-semibold flex items-center gap-1.5 text-zinc-100">
+                <div className="font-semibold flex items-center justify-between gap-1.5 text-zinc-100 border-b border-zinc-800 pb-1 mb-1.5">
                   <span>{points[hoveredIndex].item.dayLabel}</span>
                   <span className="text-[10px] text-zinc-400 font-mono">
-                    ({points[hoveredIndex].item.dateString})
+                    {points[hoveredIndex].item.dateString}
                   </span>
                 </div>
-                <div className="text-emerald-400 font-mono font-bold mt-0.5">
-                  {points[hoveredIndex].item.userCount}{" "}
-                  {points[hoveredIndex].item.userCount === 1 ? "User" : "Users"}
-                </div>
-                <div className="text-[10px] text-zinc-400">
-                  {points[hoveredIndex].item.activeSessions} active sessions
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-zinc-400">Total LLCs:</span>
+                    <span className="text-emerald-400 font-mono font-bold">
+                      {points[hoveredIndex].item.totalLLCs}{" "}
+                      {points[hoveredIndex].item.totalLLCs === 1 ? "LLC" : "LLCs"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-zinc-400">Active Entities:</span>
+                    <span className="text-blue-400 font-mono font-medium">
+                      {points[hoveredIndex].item.activeLLCs}
+                    </span>
+                  </div>
+                  {points[hoveredIndex].item.newRegistrations > 0 && (
+                    <div className="flex items-center justify-between gap-2 pt-0.5 border-t border-zinc-800 text-amber-400">
+                      <span className="text-[10px]">New Registrations:</span>
+                      <span className="font-mono font-bold">+{points[hoveredIndex].item.newRegistrations}</span>
+                    </div>
+                  )}
+                  {points[hoveredIndex].item.activityCount > 0 && (
+                    <div className="text-[10px] text-zinc-400 pt-0.5 border-t border-zinc-800">
+                      {points[hoveredIndex].item.activityCount} recorded {points[hoveredIndex].item.activityCount === 1 ? "action" : "actions"}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -385,14 +418,12 @@ export default function DashboardOverview() {
 
           {/* X-axis Labels */}
           <div className="flex items-center justify-between gap-2 pt-3 text-xs border-t border-[#1f1f24] mt-2">
-            {dailyUsers.map((item, idx) => (
+            {activityList.map((item, idx) => (
               <div key={idx} className="flex-1 text-center">
                 <span
                   className={`block text-[11px] font-medium transition-colors ${
                     item.isToday
                       ? "text-emerald-400 font-bold"
-                      : item.isTomorrow
-                      ? "text-blue-400 font-bold"
                       : "text-zinc-400"
                   }`}
                 >
@@ -410,11 +441,15 @@ export default function DashboardOverview() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-zinc-500 gap-2 px-1">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span>Today records <strong className="text-white">2 active users</strong> across registered corporate accounts.</span>
+            <span>
+              Real LLC record tally: <strong className="text-white">{todayMetric?.totalLLCs ?? totalRegisteredNow} registered entities</strong> ({todayMetric?.activeLLCs ?? totalActiveNow} in active standing).
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-blue-400" />
-            <span>Tomorrow projects <strong className="text-white">3 active users</strong> following planned onboarding.</span>
+            <span>
+              Activity timeline: <strong className="text-white">{todayMetric?.dateString || "Current"}</strong> records live LLC operations.
+            </span>
           </div>
         </div>
       </div>

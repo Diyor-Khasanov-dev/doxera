@@ -33,14 +33,27 @@ export interface LLCItem {
 
 export type LLCSummary = Omit<LLCItem, "passwordHash">;
 
-export interface DailyUserMetric {
-  dayLabel: string; // e.g. "Yesterday", "Today", "Tomorrow", "Thu", etc.
+export interface DailyLLCActivityMetric {
+  dayLabel: string; // e.g. "Wed", "Yesterday", "Today"
   dateString: string; // YYYY-MM-DD
-  userCount: number; // e.g. 2, 3
-  activeSessions: number;
+  totalLLCs: number; // Cumulative registered LLCs up to this date
+  activeLLCs: number; // Active LLC entities up to this date
+  newRegistrations: number; // How many new LLCs were registered on this date
+  activityCount: number; // How many activities (filings, logs, updates) occurred on this date
   isToday?: boolean;
-  isTomorrow?: boolean;
+  activities?: {
+    companyName: string;
+    action: string;
+    time?: string;
+  }[];
 }
+
+// Retain DailyUserMetric alias for backward compatibility
+export type DailyUserMetric = DailyLLCActivityMetric & {
+  userCount: number;
+  activeSessions: number;
+  isTomorrow?: boolean;
+};
 
 export interface LLCAnalyticsOverview {
   totalLLCs: number;
@@ -54,4 +67,5 @@ export interface LLCAnalyticsOverview {
   planDistribution: { plan: string; count: number }[];
   monthlyRevenueTotals: { month: string; amount: number }[];
   dailyUserAnalytics: DailyUserMetric[];
+  activityTimeline: DailyLLCActivityMetric[];
 }
