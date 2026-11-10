@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { findLLCByUsername } from "./llcStore";
+import { getAdminUser } from "./adminStore";
 
 export const DEMO_USER = {
   username: "admin",
@@ -48,13 +49,14 @@ export async function parseAndVerifySessionToken(
       const timestamp = parseInt(timestampStr, 10);
       if (Date.now() - timestamp > 7 * 24 * 60 * 60 * 1000) return { isValid: false };
 
-      if (username === DEMO_USER.username) {
+      const currentAdmin = await getAdminUser();
+      if (username === currentAdmin.username || username === DEMO_USER.username) {
         return {
           isValid: true,
           payload: {
-            username: DEMO_USER.username,
+            username: currentAdmin.username,
             role: "admin",
-            name: DEMO_USER.name,
+            name: currentAdmin.name,
           },
         };
       }
@@ -71,12 +73,13 @@ export async function parseAndVerifySessionToken(
       if (Date.now() - timestamp > 7 * 24 * 60 * 60 * 1000) return { isValid: false };
 
       if (role === "admin") {
+        const currentAdmin = await getAdminUser();
         return {
           isValid: true,
           payload: {
-            username,
+            username: currentAdmin.username,
             role: "admin",
-            name: DEMO_USER.name,
+            name: currentAdmin.name,
           },
         };
       } else if (role === "llc") {
@@ -148,16 +151,27 @@ export async function authenticateCredentials(
   const password = passwordInput;
 
   // 1. Check Admin Credentials
-  const adminUsername = process.env.ADMIN_USERNAME || DEMO_USER.username;
-  const adminPassword = process.env.ADMIN_PASSWORD || DEMO_USER.password;
+  const currentAdmin = await getAdminUser();
+  const adminUsername = currentAdmin.username || process.env.ADMIN_USERNAME || DEMO_USER.username;
+  const adminPasswordHash = currentAdmin.passwordHash;
+  const fallbackEnvPassword = process.env.ADMIN_PASSWORD || DEMO_USER.password;
 
-  if (username === adminUsername && password === adminPassword) {
+  let isAdminMatch = false;
+  if (username.toLowerCase() === adminUsername.toLowerCase()) {
+    if (adminPasswordHash) {
+      isAdminMatch = await verifyPassword(password, adminPasswordHash);
+    } else {
+      isAdminMatch = password === fallbackEnvPassword;
+    }
+  }
+
+  if (isAdminMatch) {
     return {
       success: true,
       role: "admin",
       user: {
         username: adminUsername,
-        name: DEMO_USER.name,
+        name: currentAdmin.name || DEMO_USER.name,
         role: "Administrator",
       },
     };

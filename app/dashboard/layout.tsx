@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { AUTH_COOKIE_NAME, DEMO_USER, verifySessionToken } from "@/lib/auth";
+import { AUTH_COOKIE_NAME, parseAndVerifySessionToken } from "@/lib/auth";
+import { getAdminUser } from "@/lib/adminStore";
 import DashboardLayoutClient from "./DashboardLayoutClient";
 
 async function ProtectedDashboardLayout({
@@ -11,18 +12,20 @@ async function ProtectedDashboardLayout({
 }) {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-  const isAuthenticated = await verifySessionToken(token);
+  const { isValid, payload } = await parseAndVerifySessionToken(token);
 
-  if (!isAuthenticated) {
+  if (!isValid || payload?.role !== "admin") {
     redirect("/login");
   }
+
+  const admin = await getAdminUser();
 
   return (
     <DashboardLayoutClient
       user={{
-        username: DEMO_USER.username,
-        name: DEMO_USER.name,
-        role: DEMO_USER.role,
+        username: admin.username || payload.username,
+        name: admin.name || payload.name || "Admin User",
+        role: admin.role || "Administrator",
       }}
     >
       {children}

@@ -1,12 +1,21 @@
+import { Suspense } from "react";
+import SettingsClient from "./SettingsClient";
+
 export const metadata = {
   title: "Settings - Doxera",
-  description: "Settings",
+  description: "Manage administrative profile, login credentials, and account settings.",
 };
 
 export default function SettingsPage() {
   return (
-    <div>
-      <h1 className="text-2xl font-bold tracking-tight text-white">Settings</h1>
-    </div>
+    <Suspense
+      fallback={
+        <div className="py-16 text-center text-zinc-500 font-mono text-xs">
+          Loading settings...
+        </div>
+      }
+    >
+      <SettingsClient />
+    </Suspense>
   );
 }
