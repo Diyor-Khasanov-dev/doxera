@@ -83,12 +83,14 @@ export async function parseAndVerifySessionToken(
           },
         };
       } else if (role === "llc") {
+        const llc = await findLLCByUsername(username);
         return {
           isValid: true,
           payload: {
             username,
             role: "llc",
-            llcId,
+            llcId: llc?.llcId || llcId,
+            companyName: llc?.companyName || username,
           },
         };
       }

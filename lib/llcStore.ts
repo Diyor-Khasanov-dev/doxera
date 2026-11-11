@@ -17,7 +17,7 @@ const initialSampleLLCs: LLCItem[] = [
     llcId: "LLC-8801",
     username: "apexdynamics",
     // bcrypt hash of "apexPass123!"
-    passwordHash: "$2a$10$w4Bq8kP3OQ.tS5m9v64rCeRj40eT8H5h87Fk/m7FwI5h3p03P5b.O",
+    passwordHash: "$2b$10$XBzZ6B5ALOtTfZeSX/JB9O70N2jI61GDMlJYHIgNUWhj0QD5bLeCe",
     email: "ops@apexdynamics.io",
     state: "Delaware",
     formationDate: "2023-04-12",
@@ -55,7 +55,7 @@ const initialSampleLLCs: LLCItem[] = [
     llcId: "LLC-8802",
     username: "solaria",
     // bcrypt hash of "solaria2025!"
-    passwordHash: "$2a$10$w4Bq8kP3OQ.tS5m9v64rCeRj40eT8H5h87Fk/m7FwI5h3p03P5b.O",
+    passwordHash: "$2b$10$J/qD8Hoby.rgKVFZkRQfmehyXOyhm.ZA.kMqkLBb/1.CcR.ck7JOC",
     email: "contact@solaria.co",
     state: "Wyoming",
     formationDate: "2023-09-18",
@@ -88,7 +88,7 @@ const initialSampleLLCs: LLCItem[] = [
     llcId: "LLC-8803",
     username: "novahorizon",
     // bcrypt hash of "novaSecure789!"
-    passwordHash: "$2a$10$w4Bq8kP3OQ.tS5m9v64rCeRj40eT8H5h87Fk/m7FwI5h3p03P5b.O",
+    passwordHash: "$2b$10$xXeD8sTIfA9ki58AT.1CM.G/HqP.DB9BDlmf3TAhONtBioptasO/i",
     email: "hello@novahorizon.dev",
     state: "Texas",
     formationDate: "2024-02-05",
