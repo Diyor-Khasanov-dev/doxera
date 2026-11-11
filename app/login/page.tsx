@@ -33,7 +33,8 @@ export default function LoginPage() {
       }
 
       // Successful login
-      router.push("/dashboard");
+      const destination = data.redirectTo || (data.role === "llc" ? "/portal" : "/dashboard");
+      router.push(destination);
       router.refresh();
     } catch {
       setErrorMessage("Network error occurred. Please try again.");
