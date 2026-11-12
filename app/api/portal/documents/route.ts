@@ -8,7 +8,7 @@ import {
 } from "@/lib/documentStore";
 
 // Helper to resolve currently authenticated LLC
-async function getAuthenticatedLLC() {
+async function getAuthenticatedLLC(request?: Request, targetLlcId?: string) {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
   const { isValid, payload } = await parseAndVerifySessionToken(token);
@@ -26,25 +26,41 @@ async function getAuthenticatedLLC() {
     return llc;
   }
 
-  // Admin viewing LLC portal preview defaults to LLC-8801
-  return (await findLLCById("LLC-8801")) || (await findLLCByUsername("apexdynamics"));
+  // Admin user can view/manage specific LLC by targetLlcId or query param
+  if (payload.role === "admin") {
+    let llcIdToLookup = targetLlcId;
+    if (!llcIdToLookup && request) {
+      const url = new URL(request.url);
+      llcIdToLookup = url.searchParams.get("llcId") || undefined;
+    }
+    if (llcIdToLookup) {
+      const target = await findLLCById(llcIdToLookup);
+      if (target) return target;
+    }
+    // Fallback default for admin portal preview
+    return (await findLLCById("LLC-8801")) || (await findLLCByUsername("apexdynamics"));
+  }
+
+  return null;
 }
 
-// GET /api/portal/documents - List documents for current LLC
+// GET /api/portal/documents - List documents for current LLC (or target LLC if admin)
 export async function GET(request: Request) {
-  const llc = await getAuthenticatedLLC();
+  const { searchParams } = new URL(request.url);
+  const targetLlcId = searchParams.get("llcId") || undefined;
+
+  const llc = await getAuthenticatedLLC(request, targetLlcId);
   if (!llc) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { searchParams } = new URL(request.url);
   const search = searchParams.get("search") || undefined;
   const sortBy = (searchParams.get("sortBy") as "creationDate" | "endDate" | "title" | "status") || undefined;
   const sortOrder = (searchParams.get("sortOrder") as "asc" | "desc") || undefined;
   const status = searchParams.get("status") || undefined;
 
-  const targetLLCId = llc.llcId || llc._id || "LLC-8801";
-  const docs = await getDocumentsByLLC(targetLLCId, {
+  const resolvedLLCId = targetLlcId || llc.llcId || llc._id || "LLC-8801";
+  const docs = await getDocumentsByLLC(resolvedLLCId, {
     search,
     sortBy,
     sortOrder,
@@ -55,20 +71,34 @@ export async function GET(request: Request) {
     success: true,
     data: docs,
     total: docs.length,
+    llc: {
+      companyName: llc.companyName,
+      llcId: resolvedLLCId,
+    },
   });
 }
 
-// POST /api/portal/documents - Create a new document
-// Inputs required: creation date, document (title/name), and duration (10 years) OR end of the document (date)
+// POST /api/portal/documents - Create a new document with optional integrated file
 export async function POST(request: Request) {
-  const llc = await getAuthenticatedLLC();
-  if (!llc) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
     const body = await request.json();
-    const { title, creationDate, expirationType, durationYears, endDate } = body;
+    const {
+      title,
+      creationDate,
+      expirationType,
+      durationYears,
+      endDate,
+      fileName,
+      fileSize,
+      fileFormat,
+      fileUrl,
+      llcId: explicitLlcId,
+    } = body;
+
+    const llc = await getAuthenticatedLLC(request, explicitLlcId);
+    if (!llc) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     // Validate Title (Document Name)
     if (!title || typeof title !== "string" || !title.trim()) {
@@ -115,7 +145,7 @@ export async function POST(request: Request) {
       calculatedEndDate = endDate;
     }
 
-    const targetLLCId = llc.llcId || llc._id || "LLC-8801";
+    const targetLLCId = explicitLlcId || llc.llcId || llc._id || "LLC-8801";
 
     const newDoc = await createDocument({
       llcId: targetLLCId,
@@ -124,11 +154,13 @@ export async function POST(request: Request) {
       expirationType,
       durationYears: finalDurationYears,
       endDate: calculatedEndDate || "",
-      fileSize: "1.2 MB",
-      fileFormat: "PDF",
+      fileName: fileName ? String(fileName).trim() : undefined,
+      fileSize: fileSize ? String(fileSize).trim() : undefined,
+      fileFormat: fileFormat ? String(fileFormat).trim().toUpperCase() : undefined,
+      fileUrl: fileUrl ? String(fileUrl) : undefined,
     });
 
-    // Optionally increment documentsCount on LLC profile
+    // Update documentsCount on LLC profile
     const allLLCDocs = await getDocumentsByLLC(targetLLCId);
     await updateLLC(llc._id || llc.llcId, {
       documentsCount: allLLCDocs.length,
@@ -143,7 +175,7 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Creation failed.";
+    const message = err instanceof Error ? err.message : "Failed to create document.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { ObjectId } from "mongodb";
 import {
   LLCDocument,
   LLCDocumentWithComputedStatus,
+  DocumentStatus,
   computeDocumentStatus,
   calculateEndDateFromDuration,
 } from "./models/document";
@@ -21,8 +22,8 @@ function getDateStringOffset(yearOffset: number, monthOffset: number = 0, dayOff
 
 // Initial sample documents exhibiting:
 // 1. Active (e.g. 10 years duration, or several years out)
-// 2. Warning (expiring within 3 months, e.g. 45 days)
-// 3. Finished (red badge, expired in the past)
+// 2. Expiring Soon / Warning (expiring within 3 months, e.g. 45 days)
+// 3. Expired (red badge, expired in the past)
 const initialSampleDocuments: LLCDocument[] = [
   {
     _id: "77123456789abcdef0000001",
@@ -32,7 +33,8 @@ const initialSampleDocuments: LLCDocument[] = [
     creationDate: "2023-04-12",
     expirationType: "duration",
     durationYears: 10,
-    endDate: calculateEndDateFromDuration("2023-04-12", 10), // 2033-04-12 -> Active
+    endDate: calculateEndDateFromDuration("2023-04-12", 10), // -> Active
+    fileName: "Articles_of_Organization.pdf",
     fileSize: "1.4 MB",
     fileFormat: "PDF",
     createdAt: "2023-04-12T08:00:00Z",
@@ -45,7 +47,8 @@ const initialSampleDocuments: LLCDocument[] = [
     title: "State Operating Certificate & By-Laws",
     creationDate: getDateStringOffset(-1, 0, 0), // 1 year ago
     expirationType: "endDate",
-    endDate: getDateStringOffset(0, 1, 15), // ~45 days from today -> WARNING (nearly to finish, < 3 months)
+    endDate: getDateStringOffset(0, 1, 15), // ~45 days from today -> EXPIRING SOON (< 3 months)
+    fileName: "State_Operating_Certificate_ByLaws.pdf",
     fileSize: "2.1 MB",
     fileFormat: "PDF",
     createdAt: "2024-05-01T10:00:00Z",
@@ -58,7 +61,8 @@ const initialSampleDocuments: LLCDocument[] = [
     title: "Previous Year Annual Franchise Tax Permit",
     creationDate: "2024-01-15",
     expirationType: "endDate",
-    endDate: getDateStringOffset(0, -1, 0), // 1 month ago -> FINISHED (red badge)
+    endDate: getDateStringOffset(0, -1, 0), // 1 month ago -> EXPIRED (red badge)
+    fileName: "Annual_Franchise_Tax_Permit_2024.pdf",
     fileSize: "860 KB",
     fileFormat: "PDF",
     createdAt: "2024-01-15T09:00:00Z",
@@ -73,6 +77,7 @@ const initialSampleDocuments: LLCDocument[] = [
     expirationType: "duration",
     durationYears: 10,
     endDate: calculateEndDateFromDuration("2023-04-14", 10), // Active
+    fileName: "IRS_EIN_Assignment_Letter.pdf",
     fileSize: "420 KB",
     fileFormat: "PDF",
     createdAt: "2023-04-14T11:00:00Z",
@@ -87,6 +92,7 @@ const initialSampleDocuments: LLCDocument[] = [
     expirationType: "duration",
     durationYears: 10,
     endDate: calculateEndDateFromDuration("2023-09-18", 10), // Active
+    fileName: "Wyoming_Articles_of_Organization.pdf",
     fileSize: "1.1 MB",
     fileFormat: "PDF",
     createdAt: "2023-09-18T09:30:00Z",
@@ -152,6 +158,7 @@ export async function getDocumentsByLLC(
         d.title.toLowerCase().includes(q) ||
         d.creationDate.includes(q) ||
         d.endDate.includes(q) ||
+        (d.fileName && d.fileName.toLowerCase().includes(q)) ||
         d.status.toLowerCase().includes(q) ||
         d.statusLabel.toLowerCase().includes(q)
     );
@@ -177,7 +184,7 @@ export async function getDocumentsByLLC(
       return (new Date(a.endDate).getTime() - new Date(b.endDate).getTime()) * sortOrder;
     }
     if (sortBy === "status") {
-      const orderMap = { warning: 1, active: 2, finished: 3 };
+      const orderMap: Record<DocumentStatus, number> = { warning: 1, active: 2, expired: 3 };
       return ((orderMap[a.status] || 0) - (orderMap[b.status] || 0)) * sortOrder;
     }
     return 0;
@@ -186,11 +193,14 @@ export async function getDocumentsByLLC(
   return enriched;
 }
 
-export async function findDocumentById(id: string, llcId: string): Promise<LLCDocument | null> {
+export async function findDocumentById(id: string, llcId?: string): Promise<LLCDocument | null> {
   const mongoOnline = await isMongoAvailable();
   if (mongoOnline) {
     const db = await getDatabase();
-    const query: Record<string, unknown> = { llcId };
+    const query: Record<string, unknown> = {};
+    if (llcId) {
+      query.llcId = llcId;
+    }
     if (ObjectId.isValid(id)) {
       query._id = new ObjectId(id);
     } else {
@@ -206,11 +216,11 @@ export async function findDocumentById(id: string, llcId: string): Promise<LLCDo
   }
 
   const doc = memoryDocumentStore.get(id);
-  if (doc && doc.llcId === llcId) {
+  if (doc && (!llcId || doc.llcId === llcId)) {
     return doc;
   }
   for (const item of memoryDocumentStore.values()) {
-    if ((item.id === id || item._id === id) && item.llcId === llcId) {
+    if ((item.id === id || item._id === id) && (!llcId || item.llcId === llcId)) {
       return item;
     }
   }
@@ -232,6 +242,10 @@ export async function createDocument(
   const payload: Omit<LLCDocument, "_id" | "id"> = {
     ...data,
     endDate: finalEndDate,
+    fileName: data.fileName || `${data.title.replace(/[^a-zA-Z0-9_-]/g, "_")}.${(data.fileFormat || "pdf").toLowerCase()}`,
+    fileSize: data.fileSize || "1.2 MB",
+    fileFormat: data.fileFormat || "PDF",
+    fileUrl: data.fileUrl,
     createdAt: now,
     updatedAt: now,
   };
@@ -270,11 +284,15 @@ export interface UpdateDocumentPayload {
   expirationType?: "duration" | "endDate";
   durationYears?: number;
   endDate?: string;
+  fileName?: string;
+  fileSize?: string;
+  fileFormat?: string;
+  fileUrl?: string;
 }
 
 export async function updateDocument(
   id: string,
-  llcId: string,
+  llcId: string | undefined,
   updates: UpdateDocumentPayload
 ): Promise<LLCDocumentWithComputedStatus | null> {
   const existing = await findDocumentById(id, llcId);
@@ -303,10 +321,16 @@ export async function updateDocument(
     updatedAt: now,
   };
 
+  if (updates.fileName !== undefined) nextFields.fileName = updates.fileName;
+  if (updates.fileSize !== undefined) nextFields.fileSize = updates.fileSize;
+  if (updates.fileFormat !== undefined) nextFields.fileFormat = updates.fileFormat;
+  if (updates.fileUrl !== undefined) nextFields.fileUrl = updates.fileUrl;
+
   const mongoOnline = await isMongoAvailable();
   if (mongoOnline) {
     const db = await getDatabase();
-    const query: Record<string, unknown> = { llcId };
+    const query: Record<string, unknown> = {};
+    if (llcId) query.llcId = llcId;
     if (ObjectId.isValid(id)) {
       query._id = new ObjectId(id);
     } else {
@@ -341,11 +365,12 @@ export async function updateDocument(
   };
 }
 
-export async function deleteDocument(id: string, llcId: string): Promise<boolean> {
+export async function deleteDocument(id: string, llcId?: string): Promise<boolean> {
   const mongoOnline = await isMongoAvailable();
   if (mongoOnline) {
     const db = await getDatabase();
-    const query: Record<string, unknown> = { llcId };
+    const query: Record<string, unknown> = {};
+    if (llcId) query.llcId = llcId;
     if (ObjectId.isValid(id)) {
       query._id = new ObjectId(id);
     } else {

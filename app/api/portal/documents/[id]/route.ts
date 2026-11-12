@@ -10,26 +10,13 @@ import {
 } from "@/lib/documentStore";
 
 // Helper to resolve currently authenticated LLC
-async function getAuthenticatedLLC() {
+async function getAuthenticatedUser() {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
   const { isValid, payload } = await parseAndVerifySessionToken(token);
 
   if (!isValid || !payload) return null;
-
-  if (payload.role === "llc") {
-    let llc = null;
-    if (payload.llcId) {
-      llc = await findLLCById(payload.llcId);
-    }
-    if (!llc) {
-      llc = await findLLCByUsername(payload.username);
-    }
-    return llc;
-  }
-
-  // Admin viewing LLC portal preview defaults to LLC-8801
-  return (await findLLCById("LLC-8801")) || (await findLLCByUsername("apexdynamics"));
+  return payload;
 }
 
 // GET /api/portal/documents/[id] - Get document by ID
@@ -37,13 +24,13 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const llc = await getAuthenticatedLLC();
-  if (!llc) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { id } = await params;
-  const targetLLCId = llc.llcId || llc._id || "LLC-8801";
+  const targetLLCId = user.role === "llc" ? (user.llcId || "LLC-8801") : undefined;
   const doc = await findDocumentById(id, targetLLCId);
 
   if (!doc) {
@@ -54,19 +41,18 @@ export async function GET(
 }
 
 // PUT /api/portal/documents/[id] - Modify document
-// Task requirement: "and after creating it LLC can modify only that 3 data."
-// That 3 data: creation date, document (title/name), and duration or end of the document (date).
+// Allows modifying title, creationDate, duration / endDate, AND attached file (fileName, fileSize, fileFormat, fileUrl)
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const llc = await getAuthenticatedLLC();
-  if (!llc) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { id } = await params;
-  const targetLLCId = llc.llcId || llc._id || "LLC-8801";
+  const targetLLCId = user.role === "llc" ? (user.llcId || "LLC-8801") : undefined;
 
   const existing = await findDocumentById(id, targetLLCId);
   if (!existing) {
@@ -76,16 +62,16 @@ export async function PUT(
   try {
     const body = await request.json();
 
-    // Whitelist ONLY the 3 allowed data fields:
-    // 1. Document title/name
-    // 2. Creation Date
-    // 3. Duration OR End Date (and expirationType)
     const updates: {
       title?: string;
       creationDate?: string;
       expirationType?: "duration" | "endDate";
       durationYears?: number;
       endDate?: string;
+      fileName?: string;
+      fileSize?: string;
+      fileFormat?: string;
+      fileUrl?: string;
     } = {};
 
     if (body.title !== undefined) {
@@ -134,7 +120,21 @@ export async function PUT(
       }
     }
 
-    const updated = await updateDocument(id, targetLLCId, updates);
+    // File integration updates
+    if (body.fileName !== undefined) {
+      updates.fileName = body.fileName ? String(body.fileName).trim() : "";
+    }
+    if (body.fileSize !== undefined) {
+      updates.fileSize = body.fileSize ? String(body.fileSize).trim() : "";
+    }
+    if (body.fileFormat !== undefined) {
+      updates.fileFormat = body.fileFormat ? String(body.fileFormat).trim().toUpperCase() : "";
+    }
+    if (body.fileUrl !== undefined) {
+      updates.fileUrl = body.fileUrl ? String(body.fileUrl) : "";
+    }
+
+    const updated = await updateDocument(id, existing.llcId, updates);
     if (!updated) {
       return NextResponse.json({ error: "Failed to update document." }, { status: 500 });
     }
@@ -155,24 +155,32 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const llc = await getAuthenticatedLLC();
-  if (!llc) {
+  const user = await getAuthenticatedUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { id } = await params;
-  const targetLLCId = llc.llcId || llc._id || "LLC-8801";
+  const targetLLCId = user.role === "llc" ? (user.llcId || "LLC-8801") : undefined;
 
-  const success = await deleteDocument(id, targetLLCId);
+  const existing = await findDocumentById(id, targetLLCId);
+  if (!existing) {
+    return NextResponse.json({ error: "Document not found." }, { status: 404 });
+  }
+
+  const success = await deleteDocument(id, existing.llcId);
   if (!success) {
-    return NextResponse.json({ error: "Document not found or could not be deleted." }, { status: 404 });
+    return NextResponse.json({ error: "Document could not be deleted." }, { status: 500 });
   }
 
   // Update documentsCount on LLC profile
-  const allLLCDocs = await getDocumentsByLLC(targetLLCId);
-  await updateLLC(llc._id || llc.llcId, {
-    documentsCount: allLLCDocs.length,
-  });
+  const allLLCDocs = await getDocumentsByLLC(existing.llcId);
+  const llcToUpdate = (await findLLCById(existing.llcId)) || (await findLLCByUsername(existing.llcId));
+  if (llcToUpdate) {
+    await updateLLC(llcToUpdate._id || llcToUpdate.llcId, {
+      documentsCount: allLLCDocs.length,
+    });
+  }
 
   return NextResponse.json({
     success: true,
