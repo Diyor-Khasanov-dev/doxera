@@ -15,6 +15,8 @@ export interface LLCDocument {
   fileSize?: string;
   fileFormat?: string;
   fileUrl?: string; // Data URL or storage URL
+  cloudflareKey?: string;
+  storageType?: "cloudflare_r2" | "local_data_url";
   createdAt: string;
   updatedAt: string;
 }

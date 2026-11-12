@@ -8,6 +8,7 @@ import {
   deleteDocument,
   getDocumentsByLLC,
 } from "@/lib/documentStore";
+import { uploadFileToCloudflareR2 } from "@/lib/cloudflareR2";
 
 // Helper to resolve currently authenticated LLC
 async function getAuthenticatedUser() {
@@ -41,7 +42,7 @@ export async function GET(
 }
 
 // PUT /api/portal/documents/[id] - Modify document
-// Allows modifying title, creationDate, duration / endDate, AND attached file (fileName, fileSize, fileFormat, fileUrl)
+// Requires a file (keeps existing or accepts replacement uploaded to Cloudflare R2)
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -60,7 +61,39 @@ export async function PUT(
   }
 
   try {
-    const body = await request.json();
+    const contentType = request.headers.get("content-type") || "";
+    let body: Record<string, unknown> = {};
+    let rawFileBuffer: Buffer | null = null;
+    let rawMimeType = "application/octet-stream";
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      body.title = formData.get("title");
+      body.creationDate = formData.get("creationDate");
+      body.expirationType = formData.get("expirationType");
+      body.durationYears = formData.get("durationYears");
+      body.endDate = formData.get("endDate");
+
+      const file = formData.get("file") as File | null;
+      if (file && typeof file === "object" && file.name) {
+        body.fileName = file.name;
+        body.fileSize = `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+        const ext = file.name.split(".").pop()?.toUpperCase() || "PDF";
+        body.fileFormat = ext;
+        rawMimeType = file.type || "application/octet-stream";
+        rawFileBuffer = Buffer.from(await file.arrayBuffer());
+      }
+    } else {
+      body = await request.json();
+      if (body.fileUrl && typeof body.fileUrl === "string" && body.fileUrl.startsWith("data:")) {
+        const parts = body.fileUrl.split(",");
+        if (parts.length === 2) {
+          const mimeMatch = parts[0].match(/:(.*?);/);
+          if (mimeMatch) rawMimeType = mimeMatch[1];
+          rawFileBuffer = Buffer.from(parts[1], "base64");
+        }
+      }
+    }
 
     const updates: {
       title?: string;
@@ -72,6 +105,8 @@ export async function PUT(
       fileSize?: string;
       fileFormat?: string;
       fileUrl?: string;
+      cloudflareKey?: string;
+      storageType?: "cloudflare_r2" | "local_data_url";
     } = {};
 
     if (body.title !== undefined) {
@@ -82,13 +117,13 @@ export async function PUT(
     }
 
     if (body.creationDate !== undefined) {
-      if (!body.creationDate || !/^\d{4}-\d{2}-\d{2}$/.test(body.creationDate)) {
+      if (!body.creationDate || !/^\d{4}-\d{2}-\d{2}$/.test(body.creationDate as string)) {
         return NextResponse.json(
           { error: "Valid creation date (YYYY-MM-DD) is required." },
           { status: 400 }
         );
       }
-      updates.creationDate = body.creationDate;
+      updates.creationDate = body.creationDate as string;
     }
 
     if (body.expirationType !== undefined) {
@@ -113,25 +148,40 @@ export async function PUT(
 
     if (updates.expirationType === "endDate" || (!updates.expirationType && existing.expirationType === "endDate")) {
       if (body.endDate !== undefined) {
-        if (!body.endDate || !/^\d{4}-\d{2}-\d{2}$/.test(body.endDate)) {
+        if (!body.endDate || !/^\d{4}-\d{2}-\d{2}$/.test(body.endDate as string)) {
           return NextResponse.json({ error: "Valid end date (YYYY-MM-DD) is required." }, { status: 400 });
         }
-        updates.endDate = body.endDate;
+        updates.endDate = body.endDate as string;
       }
     }
 
-    // File integration updates
-    if (body.fileName !== undefined) {
-      updates.fileName = body.fileName ? String(body.fileName).trim() : "";
+    // File validation: A file is required
+    const hasExistingFile = Boolean(existing.fileName || existing.fileUrl);
+    const hasNewFile = Boolean(body.fileName && rawFileBuffer);
+
+    if (!hasExistingFile && !hasNewFile) {
+      return NextResponse.json(
+        { error: "A document file is required. Please upload a file." },
+        { status: 400 }
+      );
     }
-    if (body.fileSize !== undefined) {
-      updates.fileSize = body.fileSize ? String(body.fileSize).trim() : "";
-    }
-    if (body.fileFormat !== undefined) {
-      updates.fileFormat = body.fileFormat ? String(body.fileFormat).trim().toUpperCase() : "";
-    }
-    if (body.fileUrl !== undefined) {
-      updates.fileUrl = body.fileUrl ? String(body.fileUrl) : "";
+
+    // If replacement file provided, upload to Cloudflare R2
+    if (hasNewFile && rawFileBuffer) {
+      const fileNameStr = String(body.fileName);
+      const uploadResult = await uploadFileToCloudflareR2({
+        buffer: rawFileBuffer,
+        fileName: fileNameStr,
+        contentType: rawMimeType,
+        llcId: existing.llcId,
+      });
+
+      updates.fileName = fileNameStr.trim();
+      updates.fileSize = body.fileSize ? String(body.fileSize).trim() : "1.2 MB";
+      updates.fileFormat = body.fileFormat ? String(body.fileFormat).trim().toUpperCase() : "PDF";
+      updates.fileUrl = uploadResult.fileUrl;
+      updates.cloudflareKey = uploadResult.key;
+      updates.storageType = uploadResult.storage;
     }
 
     const updated = await updateDocument(id, existing.llcId, updates);

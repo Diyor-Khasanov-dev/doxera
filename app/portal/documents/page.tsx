@@ -21,6 +21,7 @@ import {
   Upload,
   FileUp,
   Paperclip,
+  Cloud,
 } from "lucide-react";
 import { LLCItem } from "@/lib/models/llc";
 import {
@@ -29,6 +30,8 @@ import {
   DocumentStatus,
   calculateEndDateFromDuration,
 } from "@/lib/models/document";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { useTheme } from "@/lib/theme/ThemeContext";
 
 // Helper to format file sizes nicely
 function formatBytes(bytes: number, decimals = 1): string {
@@ -42,6 +45,9 @@ function formatBytes(bytes: number, decimals = 1): string {
 
 export default function PortalDocumentsPage() {
   const router = useRouter();
+  const { t } = useLanguage();
+  const { theme } = useTheme();
+
   const [llc, setLlc] = useState<LLCItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [documents, setDocuments] = useState<LLCDocumentWithComputedStatus[]>([]);
@@ -64,7 +70,7 @@ export default function PortalDocumentsPage() {
   const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
   const [createError, setCreateError] = useState("");
 
-  // Create Modal File State
+  // Create Modal File State (REQUIRED)
   const [createFileName, setCreateFileName] = useState("");
   const [createFileSize, setCreateFileSize] = useState("");
   const [createFileFormat, setCreateFileFormat] = useState("");
@@ -83,7 +89,7 @@ export default function PortalDocumentsPage() {
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
   const [editError, setEditError] = useState("");
 
-  // Edit Modal File State
+  // Edit Modal File State (REQUIRED)
   const [editExistingFileName, setEditExistingFileName] = useState<string | undefined>(undefined);
   const [editExistingFileSize, setEditExistingFileSize] = useState<string | undefined>(undefined);
   const [editExistingFileFormat, setEditExistingFileFormat] = useState<string | undefined>(undefined);
@@ -155,7 +161,7 @@ export default function PortalDocumentsPage() {
     };
   }, [router]);
 
-  // File parsing helper
+  // File parsing helper: converts exact file to Base64 Data URL to send to Cloudflare R2
   const processUploadedFile = (file: File): Promise<{
     name: string;
     size: string;
@@ -187,7 +193,7 @@ export default function PortalDocumentsPage() {
   const handleCreateFileSelect = async (file: File) => {
     try {
       if (file.size > 25 * 1024 * 1024) {
-        setCreateError("File is too large. Please select a file smaller than 25MB.");
+        setCreateError(t.fileTooLarge);
         return;
       }
       const processed = await processUploadedFile(file);
@@ -215,7 +221,7 @@ export default function PortalDocumentsPage() {
   const handleEditFileSelect = async (file: File) => {
     try {
       if (file.size > 25 * 1024 * 1024) {
-        setEditError("File is too large. Please select a file smaller than 25MB.");
+        setEditError(t.fileTooLarge);
         return;
       }
       const processed = await processUploadedFile(file);
@@ -270,15 +276,22 @@ export default function PortalDocumentsPage() {
     setIsEditModalOpen(true);
   };
 
-  // Create submission
+  // Create submission: strictly checks required file
   const handleCreateDocument = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!createTitle.trim()) {
-      setCreateError("Please enter a document name.");
+      setCreateError(t.errTitleRequired);
       return;
     }
+
+    // MANDATORY REQUIREMENT: File is strictly required
+    if (!createFileName || !createFileUrl) {
+      setCreateError(t.errFileRequired);
+      return;
+    }
+
     if (!createCreationDate) {
-      setCreateError("Please select a creation date.");
+      setCreateError(t.errCreationDateRequired);
       return;
     }
 
@@ -287,11 +300,11 @@ export default function PortalDocumentsPage() {
       calculatedEnd = calculateEndDateFromDuration(createCreationDate, createDurationYears);
     } else {
       if (!createEndDate) {
-        setCreateError("Please select an end date for the document.");
+        setCreateError(t.errEndDateRequired);
         return;
       }
       if (createEndDate < createCreationDate) {
-        setCreateError("End date cannot be prior to creation date.");
+        setCreateError(t.errEndDatePrior);
         return;
       }
     }
@@ -306,14 +319,11 @@ export default function PortalDocumentsPage() {
         expirationType: createExpirationType,
         durationYears: createExpirationType === "duration" ? createDurationYears : undefined,
         endDate: calculatedEnd,
+        fileName: createFileName,
+        fileSize: createFileSize,
+        fileFormat: createFileFormat,
+        fileUrl: createFileUrl, // Base64 data sent to Cloudflare R2
       };
-
-      if (createFileName) {
-        payload.fileName = createFileName;
-        payload.fileSize = createFileSize;
-        payload.fileFormat = createFileFormat;
-        payload.fileUrl = createFileUrl;
-      }
 
       const res = await fetch("/api/portal/documents", {
         method: "POST",
@@ -337,17 +347,25 @@ export default function PortalDocumentsPage() {
     }
   };
 
-  // Edit submission
+  // Edit submission: strictly verifies file remains present
   const handleEditDocument = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingDoc) return;
 
     if (!editTitle.trim()) {
-      setEditError("Please enter a document name.");
+      setEditError(t.errTitleRequired);
       return;
     }
+
+    // MANDATORY REQUIREMENT: File must be present (either keep existing or new replacement)
+    const hasFile = Boolean(editNewFileName || editExistingFileName);
+    if (!hasFile) {
+      setEditError(t.errFileRequired);
+      return;
+    }
+
     if (!editCreationDate) {
-      setEditError("Please select a creation date.");
+      setEditError(t.errCreationDateRequired);
       return;
     }
 
@@ -356,11 +374,11 @@ export default function PortalDocumentsPage() {
       calculatedEnd = calculateEndDateFromDuration(editCreationDate, editDurationYears);
     } else {
       if (!editEndDate) {
-        setEditError("Please select an end date for the document.");
+        setEditError(t.errEndDateRequired);
         return;
       }
       if (editEndDate < editCreationDate) {
-        setEditError("End date cannot be prior to creation date.");
+        setEditError(t.errEndDatePrior);
         return;
       }
     }
@@ -378,7 +396,7 @@ export default function PortalDocumentsPage() {
         endDate: calculatedEnd,
       };
 
-      // If user uploaded a new file during edit
+      // If user uploaded a replacement file
       if (editNewFile && editNewFileName) {
         payload.fileName = editNewFileName;
         payload.fileSize = editNewFileSize;
@@ -431,21 +449,28 @@ export default function PortalDocumentsPage() {
     }
   };
 
-  // Real download handler
+  // Download handler: downloads the exact file saved to Cloudflare R2 or data URL
   const handleDownloadDocument = (doc: LLCDocumentWithComputedStatus) => {
     const filename = doc.fileName || `${doc.title.replace(/[^a-zA-Z0-9_-]/g, "_")}.${(doc.fileFormat || "pdf").toLowerCase()}`;
 
-    if (doc.fileUrl && doc.fileUrl.startsWith("data:")) {
-      const a = document.createElement("a");
-      a.href = doc.fileUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      return;
+    // If file has a direct URL (Cloudflare R2 or Data URL or API download route)
+    if (doc.fileUrl) {
+      if (doc.fileUrl.startsWith("data:")) {
+        const a = document.createElement("a");
+        a.href = doc.fileUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return;
+      } else {
+        // Cloudflare R2 direct URL or /api/documents/download
+        window.open(doc.fileUrl, "_blank");
+        return;
+      }
     }
 
-    // Dynamic authentic certificate record for seeded documents
+    // Dynamic authentic certificate record for seeded sample documents
     const content = `================================================================================
 DOXERA ENTERPRISE VAULT - OFFICIAL CORPORATE RECORD
 ================================================================================
@@ -460,7 +485,7 @@ Status:             ${doc.statusLabel.toUpperCase()}
 Days Remaining:     ${doc.daysRemaining} days
 File Format:        ${doc.fileFormat || "PDF"}
 File Size:          ${doc.fileSize || "1.2 MB"}
-Vault Record ID:    ${doc.id || doc._id}
+Storage Location:   Cloudflare R2 Object Storage
 Timestamp:          ${new Date().toISOString()}
 ================================================================================
 This record is certified as an archived filing in the Doxera corporate portal.
@@ -528,7 +553,7 @@ Authorized signature & cryptographic verification on file.
   if (isLoading) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-12 text-zinc-400 min-h-[60vh]">
-        <Loader2 className="w-6 h-6 animate-spin text-white mb-3" />
+        <Loader2 className="w-6 h-6 animate-spin text-emerald-500 mb-3" />
         <p className="text-xs font-mono">Loading corporate documents...</p>
       </div>
     );
@@ -537,15 +562,21 @@ Authorized signature & cryptographic verification on file.
   return (
     <div className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 py-8">
       {/* Top Header */}
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#222222]">
+      <div
+        className={`mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b ${
+          theme === "dark" ? "border-[#222222]" : "border-slate-200"
+        }`}
+      >
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <FileText className="w-6 h-6 text-emerald-400" />
-            <span>Documents</span>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2.5">
+            <FileText className="w-6 h-6 text-emerald-500" />
+            <span>{t.documentsTitle}</span>
           </h1>
           <p className="text-xs text-zinc-400 mt-1">
-            Corporate archive and official filings repository for{" "}
-            <span className="text-white font-medium">{llc?.companyName}</span>
+            {t.documentsSubtitle}{" "}
+            <span className={theme === "dark" ? "text-white font-medium" : "text-slate-900 font-medium"}>
+              {llc?.companyName}
+            </span>
           </p>
         </div>
 
@@ -553,63 +584,97 @@ Authorized signature & cryptographic verification on file.
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition-colors shadow-sm cursor-pointer"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition-colors shadow-xs cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>New Document</span>
+            <span>{t.newDocument}</span>
           </button>
         </div>
       </div>
 
       {/* Analytics Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-        <div className="p-4 rounded-xl border border-[#222222] bg-[#0c0c0e]">
+        <div
+          className={`p-4 rounded-xl border ${
+            theme === "dark"
+              ? "border-[#222222] bg-[#0c0c0e]"
+              : "border-slate-200 bg-white shadow-xs"
+          }`}
+        >
           <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
-            <span>Total Documents</span>
+            <span>{t.totalDocuments}</span>
             <FileText className="w-4 h-4 text-zinc-400" />
           </div>
-          <div className="text-2xl font-bold text-white tracking-tight font-mono">
+          <div
+            className={`text-2xl font-bold tracking-tight font-mono ${
+              theme === "dark" ? "text-white" : "text-slate-900"
+            }`}
+          >
             {documents.length}
           </div>
-          <div className="text-[11px] text-zinc-500 mt-1">Corporate records filed</div>
+          <div className="text-[11px] text-zinc-500 mt-1">{t.totalDocsSubtitle}</div>
         </div>
 
-        <div className="p-4 rounded-xl border border-[#222222] bg-[#0c0c0e]">
+        <div
+          className={`p-4 rounded-xl border ${
+            theme === "dark"
+              ? "border-[#222222] bg-[#0c0c0e]"
+              : "border-slate-200 bg-white shadow-xs"
+          }`}
+        >
           <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
-            <span>Active</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>{t.active}</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="text-2xl font-bold text-emerald-400 tracking-tight font-mono">
+          <div className="text-2xl font-bold text-emerald-500 tracking-tight font-mono">
             {activeCount}
           </div>
-          <div className="text-[11px] text-zinc-500 mt-1">Valid beyond 3 months</div>
+          <div className="text-[11px] text-zinc-500 mt-1">{t.activeSubtitle}</div>
         </div>
 
-        <div className="p-4 rounded-xl border border-[#222222] bg-[#0c0c0e]">
+        <div
+          className={`p-4 rounded-xl border ${
+            theme === "dark"
+              ? "border-[#222222] bg-[#0c0c0e]"
+              : "border-slate-200 bg-white shadow-xs"
+          }`}
+        >
           <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
-            <span>Expiring Soon</span>
-            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <span>{t.expiringSoon}</span>
+            <AlertTriangle className="w-4 h-4 text-amber-500" />
           </div>
-          <div className="text-2xl font-bold text-amber-400 tracking-tight font-mono">
+          <div className="text-2xl font-bold text-amber-500 tracking-tight font-mono">
             {warningCount}
           </div>
-          <div className="text-[11px] text-zinc-500 mt-1">Due within next 3 months</div>
+          <div className="text-[11px] text-zinc-500 mt-1">{t.expiringSoonSubtitle}</div>
         </div>
 
-        <div className="p-4 rounded-xl border border-[#222222] bg-[#0c0c0e]">
+        <div
+          className={`p-4 rounded-xl border ${
+            theme === "dark"
+              ? "border-[#222222] bg-[#0c0c0e]"
+              : "border-slate-200 bg-white shadow-xs"
+          }`}
+        >
           <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
-            <span>Expired</span>
-            <XCircle className="w-4 h-4 text-rose-400" />
+            <span>{t.expired}</span>
+            <XCircle className="w-4 h-4 text-rose-500" />
           </div>
-          <div className="text-2xl font-bold text-rose-400 tracking-tight font-mono">
+          <div className="text-2xl font-bold text-rose-500 tracking-tight font-mono">
             {expiredCount}
           </div>
-          <div className="text-[11px] text-zinc-500 mt-1">Expired corporate documents</div>
+          <div className="text-[11px] text-zinc-500 mt-1">{t.expiredSubtitle}</div>
         </div>
       </div>
 
       {/* Filter, Search & Sort Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6 p-3 rounded-xl border border-[#222222] bg-[#0c0c0e]">
+      <div
+        className={`flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6 p-3 rounded-xl border ${
+          theme === "dark"
+            ? "border-[#222222] bg-[#0c0c0e]"
+            : "border-slate-200 bg-white shadow-xs"
+        }`}
+      >
         {/* Status Filter Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
           <button
@@ -617,11 +682,13 @@ Authorized signature & cryptographic verification on file.
             onClick={() => setStatusFilter("all")}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
               statusFilter === "all"
-                ? "bg-zinc-800 text-white border border-zinc-700"
-                : "text-zinc-400 hover:text-white hover:bg-zinc-900"
+                ? theme === "dark"
+                  ? "bg-zinc-800 text-white border border-zinc-700"
+                  : "bg-slate-900 text-white shadow-xs"
+                : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            All ({documents.length})
+            {t.all} ({documents.length})
           </button>
           <button
             type="button"
@@ -629,10 +696,10 @@ Authorized signature & cryptographic verification on file.
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
               statusFilter === "active"
                 ? "bg-emerald-950/60 text-emerald-300 border border-emerald-800"
-                : "text-zinc-400 hover:text-emerald-300 hover:bg-zinc-900"
+                : "text-zinc-400 hover:text-emerald-400"
             }`}
           >
-            Active ({activeCount})
+            {t.active} ({activeCount})
           </button>
           <button
             type="button"
@@ -640,10 +707,10 @@ Authorized signature & cryptographic verification on file.
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
               statusFilter === "warning"
                 ? "bg-amber-950/60 text-amber-300 border border-amber-800"
-                : "text-zinc-400 hover:text-amber-300 hover:bg-zinc-900"
+                : "text-zinc-400 hover:text-amber-400"
             }`}
           >
-            Expiring Soon ({warningCount})
+            {t.expiringSoon} ({warningCount})
           </button>
           <button
             type="button"
@@ -651,23 +718,27 @@ Authorized signature & cryptographic verification on file.
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
               statusFilter === "expired"
                 ? "bg-rose-950/60 text-rose-300 border border-rose-800"
-                : "text-zinc-400 hover:text-rose-300 hover:bg-zinc-900"
+                : "text-zinc-400 hover:text-rose-400"
             }`}
           >
-            Expired ({expiredCount})
+            {t.expired} ({expiredCount})
           </button>
         </div>
 
         {/* Search & Sort Controls */}
         <div className="flex items-center gap-3">
           <div className="relative flex-1 sm:w-60">
-            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search documents or files..."
+              placeholder={t.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-8 pl-9 pr-3 rounded-lg border border-[#26262b] bg-[#141418] text-xs text-white placeholder-zinc-500 outline-none focus:border-zinc-500"
+              className={`w-full h-8 pl-9 pr-3 rounded-lg border text-xs outline-none transition-colors ${
+                theme === "dark"
+                  ? "border-[#26262b] bg-[#141418] text-white placeholder-zinc-500 focus:border-zinc-400"
+                  : "border-slate-300 bg-slate-50 text-slate-900 placeholder-slate-400 focus:border-slate-900"
+              }`}
             />
           </div>
 
@@ -675,19 +746,27 @@ Authorized signature & cryptographic verification on file.
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as "creationDate" | "endDate" | "title" | "status")}
-              className="h-8 px-2.5 rounded-lg border border-[#26262b] bg-[#141418] text-xs text-zinc-300 outline-none focus:border-zinc-500 cursor-pointer"
+              className={`h-8 px-2.5 rounded-lg border text-xs outline-none cursor-pointer ${
+                theme === "dark"
+                  ? "border-[#26262b] bg-[#141418] text-zinc-300 focus:border-zinc-400"
+                  : "border-slate-300 bg-slate-50 text-slate-800 focus:border-slate-900"
+              }`}
             >
-              <option value="creationDate">Creation Date</option>
-              <option value="endDate">End Date</option>
-              <option value="title">Document Title</option>
-              <option value="status">Status</option>
+              <option value="creationDate">{t.creationDate}</option>
+              <option value="endDate">{t.endDate}</option>
+              <option value="title">{t.documentTitle}</option>
+              <option value="status">{t.status}</option>
             </select>
 
             <button
               type="button"
               onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
               title={`Sort ${sortOrder === "asc" ? "Descending" : "Ascending"}`}
-              className="h-8 w-8 rounded-lg border border-[#26262b] bg-[#141418] hover:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              className={`h-8 w-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer ${
+                theme === "dark"
+                  ? "border-[#26262b] bg-[#141418] text-zinc-400 hover:text-white hover:bg-zinc-800"
+                  : "border-slate-300 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 shadow-xs"
+              }`}
             >
               <ArrowUpDown className="w-3.5 h-3.5" />
             </button>
@@ -696,22 +775,34 @@ Authorized signature & cryptographic verification on file.
       </div>
 
       {/* Document Vault List */}
-      <div className="rounded-xl border border-[#222222] bg-[#0c0c0e] overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#1e1e24] flex items-center justify-between">
+      <div
+        className={`rounded-xl border overflow-hidden ${
+          theme === "dark"
+            ? "border-[#222222] bg-[#0c0c0e]"
+            : "border-slate-200 bg-white shadow-xs"
+        }`}
+      >
+        <div
+          className={`px-6 py-4 border-b flex items-center justify-between ${
+            theme === "dark" ? "border-[#1e1e24]" : "border-slate-100"
+          }`}
+        >
           <div className="flex items-center gap-2">
-            <FileCheck className="w-4 h-4 text-emerald-400" />
-            <h2 className="text-sm font-semibold text-white">Entity Document Vault</h2>
+            <FileCheck className="w-4 h-4 text-emerald-500" />
+            <h2 className={`text-sm font-semibold ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+              {t.vaultHeading}
+            </h2>
           </div>
           <span className="text-xs text-zinc-500 font-mono">
-            {filteredAndSortedDocs.length} {filteredAndSortedDocs.length === 1 ? "Record" : "Records"}
+            {filteredAndSortedDocs.length} {filteredAndSortedDocs.length === 1 ? t.record : t.records}
           </span>
         </div>
 
-        <div className="divide-y divide-[#1e1e24]">
+        <div className={`divide-y ${theme === "dark" ? "divide-[#1e1e24]" : "divide-slate-100"}`}>
           {filteredAndSortedDocs.length === 0 ? (
-            <div className="p-12 text-center text-xs text-zinc-500">
-              <FileText className="w-8 h-8 text-zinc-600 mx-auto mb-2 opacity-50" />
-              No corporate documents found matching your filter criteria.
+            <div className="p-12 text-center text-xs text-zinc-400">
+              <FileText className="w-8 h-8 text-zinc-400 mx-auto mb-2 opacity-40" />
+              {t.noDocumentsFound}
             </div>
           ) : (
             filteredAndSortedDocs.map((doc) => {
@@ -719,21 +810,33 @@ Authorized signature & cryptographic verification on file.
               return (
                 <div
                   key={docId}
-                  className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#111115] transition-colors"
+                  className={`p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors ${
+                    theme === "dark" ? "hover:bg-[#111115]" : "hover:bg-slate-50"
+                  }`}
                 >
                   <div className="flex items-start gap-3.5">
-                    <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0 mt-0.5 text-zinc-300">
+                    <div
+                      className={`w-10 h-10 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 ${
+                        theme === "dark"
+                          ? "bg-zinc-900 border-zinc-800 text-zinc-300"
+                          : "bg-slate-100 border-slate-200 text-slate-700"
+                      }`}
+                    >
                       {doc.fileFormat === "PDF" ? (
-                        <span className="text-[10px] font-bold font-mono text-red-400">PDF</span>
+                        <span className="text-[10px] font-bold font-mono text-red-500">PDF</span>
                       ) : doc.fileFormat === "DOCX" || doc.fileFormat === "DOC" ? (
-                        <span className="text-[10px] font-bold font-mono text-blue-400">DOC</span>
+                        <span className="text-[10px] font-bold font-mono text-blue-500">DOC</span>
                       ) : (
-                        <FileText className="w-5 h-5 text-zinc-300" />
+                        <FileText className="w-5 h-5 text-zinc-400" />
                       )}
                     </div>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-white">
+                        <span
+                          className={`text-sm font-semibold ${
+                            theme === "dark" ? "text-white" : "text-slate-900"
+                          }`}
+                        >
                           {doc.title}
                         </span>
 
@@ -741,45 +844,60 @@ Authorized signature & cryptographic verification on file.
                         {doc.status === "active" && (
                           <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full font-medium bg-emerald-950/70 text-emerald-300 border border-emerald-800/80">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            Active
+                            {t.active}
                           </span>
                         )}
                         {doc.status === "warning" && (
                           <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full font-medium bg-amber-950/70 text-amber-300 border border-amber-800/80">
                             <AlertTriangle className="w-3 h-3 text-amber-400" />
-                            Expiring Soon
+                            {t.expiringSoon}
                           </span>
                         )}
                         {doc.status === "expired" && (
                           <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full font-medium bg-rose-950/70 text-rose-300 border border-rose-800/80">
                             <XCircle className="w-3 h-3 text-rose-400" />
-                            Expired
+                            {t.expired}
                           </span>
                         )}
 
                         {doc.expirationType === "duration" && (
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 font-mono">
-                            {doc.durationYears || 10} Years Duration
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded border font-mono ${
+                              theme === "dark"
+                                ? "bg-zinc-800 text-zinc-400 border-zinc-700"
+                                : "bg-slate-100 text-slate-600 border-slate-300"
+                            }`}
+                          >
+                            {doc.durationYears || 10} {t.yearsDuration}
                           </span>
                         )}
+
+                        <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-950/40 text-blue-300 border border-blue-800/40 font-mono">
+                          <Cloud className="w-2.5 h-2.5 text-blue-400" />
+                          <span>R2</span>
+                        </span>
                       </div>
 
                       {/* File Details Subtitle */}
                       <div className="flex items-center gap-2 mt-1 text-[11px] text-zinc-400">
                         {doc.fileName && (
-                          <span className="inline-flex items-center gap-1 text-zinc-300 font-mono text-[11px]">
-                            <Paperclip className="w-3 h-3 text-zinc-500" />
+                          <span className="inline-flex items-center gap-1 font-mono text-zinc-300">
+                            <Paperclip className="w-3 h-3 text-zinc-400" />
                             <span className="truncate max-w-[220px]">{doc.fileName}</span>
                           </span>
                         )}
                         {doc.fileSize && (
                           <>
                             <span>&bull;</span>
-                            <span className="text-zinc-500 font-mono">{doc.fileSize}</span>
+                            <span className="font-mono text-zinc-400">{doc.fileSize}</span>
                           </>
                         )}
                         {doc.fileFormat && (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800/80 text-zinc-400 font-mono">
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+                              theme === "dark" ? "bg-zinc-800/80 text-zinc-400" : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
                             {doc.fileFormat}
                           </span>
                         )}
@@ -787,21 +905,21 @@ Authorized signature & cryptographic verification on file.
 
                       <div className="flex items-center gap-3 mt-2 text-[11px] text-zinc-400 font-mono flex-wrap">
                         <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3 text-zinc-500" />
-                          <span>Creation: <strong>{doc.creationDate}</strong></span>
+                          <Calendar className="w-3 h-3 text-zinc-400" />
+                          <span>{t.creation}: <strong>{doc.creationDate}</strong></span>
                         </span>
                         <span>&bull;</span>
                         <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-zinc-500" />
-                          <span>End Date: <strong className={doc.status === "expired" ? "text-rose-400" : doc.status === "warning" ? "text-amber-400" : "text-zinc-200"}>{doc.endDate}</strong></span>
+                          <Clock className="w-3 h-3 text-zinc-400" />
+                          <span>{t.expires}: <strong className={doc.status === "expired" ? "text-rose-500" : doc.status === "warning" ? "text-amber-500" : theme === "dark" ? "text-zinc-200" : "text-slate-800"}>{doc.endDate}</strong></span>
                         </span>
                         {doc.daysRemaining !== undefined && (
                           <>
                             <span>&bull;</span>
-                            <span className={doc.daysRemaining < 0 ? "text-rose-400 font-semibold" : doc.daysRemaining <= 90 ? "text-amber-400 font-semibold" : "text-zinc-500"}>
+                            <span className={doc.daysRemaining < 0 ? "text-rose-500 font-semibold" : doc.daysRemaining <= 90 ? "text-amber-500 font-semibold" : "text-zinc-400"}>
                               {doc.daysRemaining < 0
-                                ? `Expired ${Math.abs(doc.daysRemaining)} days ago`
-                                : `${doc.daysRemaining} days remaining`}
+                                ? `${t.expiredDaysAgo} ${Math.abs(doc.daysRemaining)} d`
+                                : `${doc.daysRemaining} ${t.daysRemaining}`}
                             </span>
                           </>
                         )}
@@ -814,31 +932,39 @@ Authorized signature & cryptographic verification on file.
                     <button
                       type="button"
                       onClick={() => handleOpenEditModal(doc)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2c2c34] bg-[#16161a] hover:bg-zinc-800 hover:text-white text-xs text-zinc-300 transition-colors cursor-pointer"
-                      title="Edit this document (Title, Creation Date, Duration/End Date, File)"
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors cursor-pointer ${
+                        theme === "dark"
+                          ? "border-[#2c2c34] bg-[#16161a] hover:bg-zinc-800 hover:text-white text-zinc-300"
+                          : "border-slate-300 bg-white hover:bg-slate-100 hover:text-slate-900 text-slate-700 shadow-xs"
+                      }`}
+                      title={t.edit}
                     >
                       <Pencil className="w-3.5 h-3.5 text-zinc-400" />
-                      <span>Edit</span>
+                      <span>{t.edit}</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setDocToDelete(doc)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-900/40 bg-rose-950/20 hover:bg-rose-900/40 text-xs text-rose-300 transition-colors cursor-pointer"
-                      title="Delete document"
+                      title={t.delete}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete</span>
+                      <span>{t.delete}</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => handleDownloadDocument(doc)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2c2c34] bg-[#16161a] hover:bg-emerald-950/40 hover:text-emerald-300 hover:border-emerald-800 text-xs text-zinc-300 transition-colors cursor-pointer"
-                      title="Download attached file"
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors cursor-pointer ${
+                        theme === "dark"
+                          ? "border-[#2c2c34] bg-[#16161a] hover:bg-emerald-950/40 hover:text-emerald-300 hover:border-emerald-800 text-zinc-300"
+                          : "border-slate-300 bg-white hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 text-slate-700 shadow-xs"
+                      }`}
+                      title={t.download}
                     >
                       <Download className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Download</span>
+                      <span className="hidden sm:inline">{t.download}</span>
                     </button>
                   </div>
                 </div>
@@ -848,19 +974,27 @@ Authorized signature & cryptographic verification on file.
         </div>
       </div>
 
-      {/* CREATE DOCUMENT MODAL */}
+      {/* CREATE DOCUMENT MODAL - REQUIRED FILE UPLOAD ON CLOUDFLARE */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
-          <div className="relative w-full max-w-lg rounded-xl border border-[#2a2a30] bg-[#0f0f12] p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-[#222226]">
+          <div
+            className={`relative w-full max-w-lg rounded-xl border p-6 shadow-2xl max-h-[90vh] overflow-y-auto ${
+              theme === "dark" ? "border-[#2a2a30] bg-[#0f0f12] text-white" : "border-slate-200 bg-white text-slate-900"
+            }`}
+          >
+            <div
+              className={`flex items-center justify-between pb-4 border-b ${
+                theme === "dark" ? "border-[#222226]" : "border-slate-100"
+              }`}
+            >
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-base font-semibold text-white">Create New Document</h3>
+                <FileText className="w-5 h-5 text-emerald-500" />
+                <h3 className="text-base font-semibold">{t.createNewDocument}</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(false)}
-                className="text-zinc-400 hover:text-white p-1 rounded-md hover:bg-zinc-800 transition-colors cursor-pointer"
+                className="text-zinc-400 hover:text-zinc-200 p-1 rounded-md transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -874,14 +1008,15 @@ Authorized signature & cryptographic verification on file.
             )}
 
             <form onSubmit={handleCreateDocument} className="mt-5 space-y-4">
-              {/* File Upload Zone - Senior UX integration */}
+              {/* REQUIRED File Upload Zone */}
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1.5">
-                  Attach Document File <span className="text-zinc-500 font-normal">(PDF, DOCX, Images, Scans)</span>
+                <label className="block text-xs font-semibold mb-1.5">
+                  {t.attachFileRequired} <span className="text-rose-500">*</span>
                 </label>
 
                 <input
                   type="file"
+                  required
                   ref={createFileInputRef}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -892,19 +1027,33 @@ Authorized signature & cryptographic verification on file.
                 />
 
                 {createFileName ? (
-                  <div className="p-3 rounded-lg border border-emerald-800/60 bg-emerald-950/20 flex items-center justify-between gap-3">
+                  <div
+                    className={`p-3 rounded-lg border flex items-center justify-between gap-3 ${
+                      theme === "dark"
+                        ? "border-emerald-800/60 bg-emerald-950/20"
+                        : "border-emerald-300 bg-emerald-50/60"
+                    }`}
+                  >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded bg-emerald-900/60 border border-emerald-700/60 flex items-center justify-center shrink-0">
-                        <FileCheck className="w-4 h-4 text-emerald-400" />
+                      <div className="w-8 h-8 rounded bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
+                        <FileCheck className="w-4 h-4 text-emerald-500" />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-xs font-medium text-white truncate max-w-[260px]">
+                        <div
+                          className={`text-xs font-medium truncate max-w-[260px] ${
+                            theme === "dark" ? "text-white" : "text-slate-900"
+                          }`}
+                        >
                           {createFileName}
                         </div>
                         <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 font-mono">
                           <span>{createFileSize}</span>
                           <span>&bull;</span>
-                          <span className="uppercase text-emerald-400">{createFileFormat}</span>
+                          <span className="uppercase text-emerald-500 font-semibold">{createFileFormat}</span>
+                          <span>&bull;</span>
+                          <span className="text-blue-400 flex items-center gap-0.5">
+                            <Cloud className="w-2.5 h-2.5" /> Cloudflare R2
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -918,7 +1067,7 @@ Authorized signature & cryptographic verification on file.
                         setCreateFileUrl("");
                         if (createFileInputRef.current) createFileInputRef.current.value = "";
                       }}
-                      className="p-1 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                      className="p-1 rounded text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
                       title="Remove file"
                     >
                       <X className="w-4 h-4" />
@@ -941,39 +1090,45 @@ Authorized signature & cryptographic verification on file.
                     className={`p-5 rounded-lg border-2 border-dashed text-center transition-all cursor-pointer ${
                       isDraggingCreate
                         ? "border-emerald-500 bg-emerald-950/20"
-                        : "border-[#2a2a30] hover:border-zinc-500 bg-[#141418] hover:bg-[#18181d]"
+                        : theme === "dark"
+                        ? "border-[#2a2a30] hover:border-zinc-500 bg-[#141418] hover:bg-[#18181d]"
+                        : "border-slate-300 hover:border-slate-500 bg-slate-50 hover:bg-slate-100"
                     }`}
                   >
-                    <Upload className="w-6 h-6 text-zinc-400 mx-auto mb-1.5" />
-                    <p className="text-xs text-white font-medium">
-                      Click to upload or drag & drop file
+                    <Upload className="w-6 h-6 text-emerald-500 mx-auto mb-1.5" />
+                    <p className={`text-xs font-semibold ${theme === "dark" ? "text-white" : "text-slate-900"}`}>
+                      {t.clickToUpload}
                     </p>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">
-                      PDF, DOCX, PNG, JPG up to 25MB
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      {t.fileHint}
                     </p>
                   </div>
                 )}
               </div>
 
-              {/* Field 1: Document Name */}
+              {/* Document Name */}
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1.5">
-                  Document Name <span className="text-rose-400">*</span>
+                <label className="block text-xs font-medium mb-1.5">
+                  {t.docNameLabel} <span className="text-rose-400">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Operating Agreement, Annual Certificate..."
+                  placeholder={t.docNamePlaceholder}
                   value={createTitle}
                   onChange={(e) => setCreateTitle(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg border border-[#2a2a30] bg-[#16161b] text-xs text-white placeholder-zinc-500 outline-none focus:border-emerald-500"
+                  className={`w-full h-9 px-3 rounded-lg border text-xs outline-none transition-colors ${
+                    theme === "dark"
+                      ? "border-[#2a2a30] bg-[#16161b] text-white placeholder-zinc-500 focus:border-emerald-500"
+                      : "border-slate-300 bg-slate-50 text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:bg-white"
+                  }`}
                 />
               </div>
 
-              {/* Field 2: Creation Date */}
+              {/* Creation Date */}
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1.5">
-                  Creation Date <span className="text-rose-400">*</span>
+                <label className="block text-xs font-medium mb-1.5">
+                  {t.creationDateLabel} <span className="text-rose-400">*</span>
                 </label>
                 <input
                   type="date"
@@ -986,14 +1141,18 @@ Authorized signature & cryptographic verification on file.
                       setCreateEndDate(calculateEndDateFromDuration(newDate, createDurationYears));
                     }
                   }}
-                  className="w-full h-9 px-3 rounded-lg border border-[#2a2a30] bg-[#16161b] text-xs text-white outline-none focus:border-emerald-500"
+                  className={`w-full h-9 px-3 rounded-lg border text-xs outline-none transition-colors ${
+                    theme === "dark"
+                      ? "border-[#2a2a30] bg-[#16161b] text-white focus:border-emerald-500"
+                      : "border-slate-300 bg-slate-50 text-slate-900 focus:border-slate-900 focus:bg-white"
+                  }`}
                 />
               </div>
 
-              {/* Field 3: Select either Duration (10 years) OR End Date */}
+              {/* Select Duration OR End Date */}
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-2">
-                  Document Validity / Expiration Method <span className="text-rose-400">*</span>
+                <label className="block text-xs font-medium mb-2">
+                  {t.validityMethodLabel} <span className="text-rose-400">*</span>
                 </label>
 
                 <div className="grid grid-cols-2 gap-3 mb-3">
@@ -1005,17 +1164,19 @@ Authorized signature & cryptographic verification on file.
                     }}
                     className={`p-3 rounded-lg border text-left text-xs transition-colors cursor-pointer ${
                       createExpirationType === "duration"
-                        ? "border-emerald-500 bg-emerald-950/20 text-white font-medium"
-                        : "border-[#2a2a30] bg-[#16161b] text-zinc-400 hover:text-white"
+                        ? "border-emerald-500 bg-emerald-950/20 font-medium"
+                        : theme === "dark"
+                        ? "border-[#2a2a30] bg-[#16161b] text-zinc-400"
+                        : "border-slate-300 bg-slate-50 text-slate-600"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-white">Duration</span>
+                      <span className="font-semibold">{t.durationLabel}</span>
                       {createExpirationType === "duration" && (
                         <span className="w-2 h-2 rounded-full bg-emerald-400" />
                       )}
                     </div>
-                    <span className="text-[11px] text-zinc-400">Fixed period (e.g. 10 years)</span>
+                    <span className="text-[11px] text-zinc-400">{t.durationDesc}</span>
                   </button>
 
                   <button
@@ -1025,55 +1186,67 @@ Authorized signature & cryptographic verification on file.
                     }}
                     className={`p-3 rounded-lg border text-left text-xs transition-colors cursor-pointer ${
                       createExpirationType === "endDate"
-                        ? "border-emerald-500 bg-emerald-950/20 text-white font-medium"
-                        : "border-[#2a2a30] bg-[#16161b] text-zinc-400 hover:text-white"
+                        ? "border-emerald-500 bg-emerald-950/20 font-medium"
+                        : theme === "dark"
+                        ? "border-[#2a2a30] bg-[#16161b] text-zinc-400"
+                        : "border-slate-300 bg-slate-50 text-slate-600"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-white">End Date</span>
+                      <span className="font-semibold">{t.endDateLabel}</span>
                       {createExpirationType === "endDate" && (
                         <span className="w-2 h-2 rounded-full bg-emerald-400" />
                       )}
                     </div>
-                    <span className="text-[11px] text-zinc-400">Specific expiration date</span>
+                    <span className="text-[11px] text-zinc-400">{t.endDateDesc}</span>
                   </button>
                 </div>
 
                 {createExpirationType === "duration" ? (
-                  <div className="p-3.5 rounded-lg border border-[#222228] bg-[#121216] space-y-2">
+                  <div
+                    className={`p-3.5 rounded-lg border space-y-2 ${
+                      theme === "dark" ? "border-[#222228] bg-[#121216]" : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
                     <label className="block text-[11px] text-zinc-400">
-                      Duration Period
+                      {t.durationPeriod}
                     </label>
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={createDurationYears}
-                        onChange={(e) => {
-                          const yrs = Number(e.target.value);
-                          setCreateDurationYears(yrs);
-                          setCreateEndDate(calculateEndDateFromDuration(createCreationDate, yrs));
-                        }}
-                        className="h-9 px-3 rounded-lg border border-[#2a2a30] bg-[#16161b] text-xs text-white outline-none focus:border-emerald-500 flex-1 cursor-pointer"
-                      >
-                        <option value={10}>10 Years (Recommended standard)</option>
-                        <option value={1}>1 Year (Annual)</option>
-                        <option value={2}>2 Years</option>
-                        <option value={3}>3 Years</option>
-                        <option value={5}>5 Years</option>
-                        <option value={15}>15 Years</option>
-                        <option value={20}>20 Years</option>
-                      </select>
-                    </div>
-                    <div className="text-[11px] text-zinc-500">
-                      Auto-calculated End Date:{" "}
-                      <span className="text-white font-mono">
+                    <select
+                      value={createDurationYears}
+                      onChange={(e) => {
+                        const yrs = Number(e.target.value);
+                        setCreateDurationYears(yrs);
+                        setCreateEndDate(calculateEndDateFromDuration(createCreationDate, yrs));
+                      }}
+                      className={`h-9 px-3 rounded-lg border text-xs outline-none w-full cursor-pointer ${
+                        theme === "dark"
+                          ? "border-[#2a2a30] bg-[#16161b] text-white focus:border-emerald-500"
+                          : "border-slate-300 bg-white text-slate-900 focus:border-slate-900"
+                      }`}
+                    >
+                      <option value={10}>{t.tenYearsRecommended}</option>
+                      <option value={1}>1 Year (Annual)</option>
+                      <option value={2}>2 Years</option>
+                      <option value={3}>3 Years</option>
+                      <option value={5}>5 Years</option>
+                      <option value={15}>15 Years</option>
+                      <option value={20}>20 Years</option>
+                    </select>
+                    <div className="text-[11px] text-zinc-400">
+                      {t.autoCalculatedEndDate}:{" "}
+                      <span className="font-mono font-bold">
                         {calculateEndDateFromDuration(createCreationDate, createDurationYears)}
                       </span>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3.5 rounded-lg border border-[#222228] bg-[#121216] space-y-2">
+                  <div
+                    className={`p-3.5 rounded-lg border space-y-2 ${
+                      theme === "dark" ? "border-[#222228] bg-[#121216]" : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
                     <label className="block text-[11px] text-zinc-400">
-                      Specific End Date (YYYY-MM-DD)
+                      {t.endDateLabel} (YYYY-MM-DD)
                     </label>
                     <input
                       type="date"
@@ -1081,32 +1254,44 @@ Authorized signature & cryptographic verification on file.
                       value={createEndDate}
                       min={createCreationDate}
                       onChange={(e) => setCreateEndDate(e.target.value)}
-                      className="w-full h-9 px-3 rounded-lg border border-[#2a2a30] bg-[#16161b] text-xs text-white outline-none focus:border-emerald-500"
+                      className={`w-full h-9 px-3 rounded-lg border text-xs outline-none ${
+                        theme === "dark"
+                          ? "border-[#2a2a30] bg-[#16161b] text-white focus:border-emerald-500"
+                          : "border-slate-300 bg-white text-slate-900 focus:border-slate-900"
+                      }`}
                     />
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#222226]">
+              <div
+                className={`flex items-center justify-end gap-3 pt-4 border-t ${
+                  theme === "dark" ? "border-[#222226]" : "border-slate-200"
+                }`}
+              >
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-[#2a2a30] text-xs text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                  className={`px-4 py-2 rounded-lg border text-xs transition-colors cursor-pointer ${
+                    theme === "dark"
+                      ? "border-[#2a2a30] text-zinc-400 hover:text-white hover:bg-zinc-800"
+                      : "border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  }`}
                 >
-                  Cancel
+                  {t.cancel}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingCreate}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
                 >
                   {isSubmittingCreate ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Creating...</span>
+                      <span>{t.creatingBtn}</span>
                     </>
                   ) : (
-                    <span>Create Document</span>
+                    <span>{t.createDocumentBtn}</span>
                   )}
                 </button>
               </div>
@@ -1115,14 +1300,22 @@ Authorized signature & cryptographic verification on file.
         </div>
       )}
 
-      {/* EDIT DOCUMENT MODAL */}
+      {/* EDIT DOCUMENT MODAL - REQUIRED FILE UPLOAD ON CLOUDFLARE */}
       {isEditModalOpen && editingDoc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
-          <div className="relative w-full max-w-lg rounded-xl border border-[#2a2a30] bg-[#0f0f12] p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-[#222226]">
+          <div
+            className={`relative w-full max-w-lg rounded-xl border p-6 shadow-2xl max-h-[90vh] overflow-y-auto ${
+              theme === "dark" ? "border-[#2a2a30] bg-[#0f0f12] text-white" : "border-slate-200 bg-white text-slate-900"
+            }`}
+          >
+            <div
+              className={`flex items-center justify-between pb-4 border-b ${
+                theme === "dark" ? "border-[#222226]" : "border-slate-100"
+              }`}
+            >
               <div className="flex items-center gap-2">
-                <Pencil className="w-5 h-5 text-blue-400" />
-                <h3 className="text-base font-semibold text-white">Modify Document</h3>
+                <Pencil className="w-5 h-5 text-blue-500" />
+                <h3 className="text-base font-semibold">{t.modifyDocument}</h3>
               </div>
               <button
                 type="button"
@@ -1130,14 +1323,14 @@ Authorized signature & cryptographic verification on file.
                   setIsEditModalOpen(false);
                   setEditingDoc(null);
                 }}
-                className="text-zinc-400 hover:text-white p-1 rounded-md hover:bg-zinc-800 transition-colors cursor-pointer"
+                className="text-zinc-400 hover:text-zinc-200 p-1 rounded-md transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <p className="text-[11px] text-zinc-400 mt-2">
-              Update document parameters, timeline validity, and integrate replacement files.
+              {t.modifySubtitle}
             </p>
 
             {editError && (
@@ -1148,10 +1341,10 @@ Authorized signature & cryptographic verification on file.
             )}
 
             <form onSubmit={handleEditDocument} className="mt-5 space-y-4">
-              {/* File Input for Editing / Replacement */}
+              {/* REQUIRED File Input for Editing / Replacement */}
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1.5">
-                  Attached File / Integrated Document
+                <label className="block text-xs font-semibold mb-1.5">
+                  {t.attachFileRequired} <span className="text-rose-500">*</span>
                 </label>
 
                 <input
@@ -1166,22 +1359,26 @@ Authorized signature & cryptographic verification on file.
                 />
 
                 {editNewFileName ? (
-                  <div className="p-3 rounded-lg border border-blue-800/60 bg-blue-950/20 flex items-center justify-between gap-3">
+                  <div
+                    className={`p-3 rounded-lg border flex items-center justify-between gap-3 ${
+                      theme === "dark" ? "border-blue-800/60 bg-blue-950/20" : "border-blue-300 bg-blue-50/60"
+                    }`}
+                  >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded bg-blue-900/60 border border-blue-700/60 flex items-center justify-center shrink-0">
-                        <FileUp className="w-4 h-4 text-blue-400" />
+                      <div className="w-8 h-8 rounded bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0">
+                        <FileUp className="w-4 h-4 text-blue-500" />
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] uppercase px-1.5 py-0.2 rounded bg-blue-800/60 text-blue-300 font-semibold font-mono">
-                            New Replacement
+                          <span className="text-[10px] uppercase px-1.5 py-0.2 rounded bg-blue-600 text-white font-semibold font-mono">
+                            {t.newReplacement}
                           </span>
                         </div>
-                        <div className="text-xs font-medium text-white truncate max-w-[240px] mt-0.5">
+                        <div className="text-xs font-medium truncate max-w-[240px] mt-0.5">
                           {editNewFileName}
                         </div>
                         <div className="text-[10px] text-zinc-400 font-mono">
-                          {editNewFileSize} &bull; {editNewFileFormat}
+                          {editNewFileSize} &bull; {editNewFileFormat} &bull; Cloudflare R2
                         </div>
                       </div>
                     </div>
@@ -1196,24 +1393,28 @@ Authorized signature & cryptographic verification on file.
                         setEditNewFileUrl("");
                         if (editFileInputRef.current) editFileInputRef.current.value = "";
                       }}
-                      className="p-1 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                      className="p-1 rounded text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
                       title="Cancel replacement and keep existing"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                 ) : (
-                  <div className="p-3 rounded-lg border border-[#2a2a30] bg-[#141418] space-y-2">
+                  <div
+                    className={`p-3 rounded-lg border space-y-2 ${
+                      theme === "dark" ? "border-[#2a2a30] bg-[#141418]" : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 min-w-0">
                         <Paperclip className="w-4 h-4 text-zinc-400 shrink-0" />
                         <div className="min-w-0">
-                          <div className="text-xs text-white truncate font-mono">
+                          <div className="text-xs font-mono font-medium truncate">
                             {editExistingFileName || "No file currently attached"}
                           </div>
                           {editExistingFileSize && (
-                            <div className="text-[10px] text-zinc-500 font-mono">
-                              {editExistingFileSize} &bull; {editExistingFileFormat}
+                            <div className="text-[10px] text-zinc-400 font-mono">
+                              {editExistingFileSize} &bull; {editExistingFileFormat} &bull; Cloudflare R2
                             </div>
                           )}
                         </div>
@@ -1222,9 +1423,13 @@ Authorized signature & cryptographic verification on file.
                       <button
                         type="button"
                         onClick={() => editFileInputRef.current?.click()}
-                        className="px-2.5 py-1 rounded-md border border-[#33333d] bg-[#1a1a20] hover:bg-zinc-800 text-xs text-zinc-200 transition-colors cursor-pointer shrink-0"
+                        className={`px-2.5 py-1 rounded-md border text-xs transition-colors cursor-pointer shrink-0 ${
+                          theme === "dark"
+                            ? "border-[#33333d] bg-[#1a1a20] hover:bg-zinc-800 text-zinc-200"
+                            : "border-slate-300 bg-white hover:bg-slate-100 text-slate-700 shadow-xs"
+                        }`}
                       >
-                        Replace File
+                        {t.replaceFile}
                       </button>
                     </div>
 
@@ -1244,35 +1449,41 @@ Authorized signature & cryptographic verification on file.
                       className={`p-3 rounded-md border border-dashed text-center transition-all cursor-pointer ${
                         isDraggingEdit
                           ? "border-blue-500 bg-blue-950/20"
-                          : "border-[#222228] hover:border-zinc-500 bg-[#0e0e12]"
+                          : theme === "dark"
+                          ? "border-[#222228] hover:border-zinc-500 bg-[#0e0e12]"
+                          : "border-slate-300 hover:border-slate-500 bg-white"
                       }`}
                     >
                       <p className="text-[11px] text-zinc-400">
-                        Or drag & drop new replacement file here
+                        {t.dropFileHere}
                       </p>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Field 1: Document Name */}
+              {/* Document Name */}
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1.5">
-                  Document Name <span className="text-rose-400">*</span>
+                <label className="block text-xs font-medium mb-1.5">
+                  {t.docNameLabel} <span className="text-rose-400">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg border border-[#2a2a30] bg-[#16161b] text-xs text-white placeholder-zinc-500 outline-none focus:border-blue-500"
+                  className={`w-full h-9 px-3 rounded-lg border text-xs outline-none transition-colors ${
+                    theme === "dark"
+                      ? "border-[#2a2a30] bg-[#16161b] text-white focus:border-blue-500"
+                      : "border-slate-300 bg-slate-50 text-slate-900 focus:border-slate-900 focus:bg-white"
+                  }`}
                 />
               </div>
 
-              {/* Field 2: Creation Date */}
+              {/* Creation Date */}
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1.5">
-                  Creation Date <span className="text-rose-400">*</span>
+                <label className="block text-xs font-medium mb-1.5">
+                  {t.creationDateLabel} <span className="text-rose-400">*</span>
                 </label>
                 <input
                   type="date"
@@ -1285,14 +1496,18 @@ Authorized signature & cryptographic verification on file.
                       setEditEndDate(calculateEndDateFromDuration(newDate, editDurationYears));
                     }
                   }}
-                  className="w-full h-9 px-3 rounded-lg border border-[#2a2a30] bg-[#16161b] text-xs text-white outline-none focus:border-blue-500"
+                  className={`w-full h-9 px-3 rounded-lg border text-xs outline-none transition-colors ${
+                    theme === "dark"
+                      ? "border-[#2a2a30] bg-[#16161b] text-white focus:border-blue-500"
+                      : "border-slate-300 bg-slate-50 text-slate-900 focus:border-slate-900 focus:bg-white"
+                  }`}
                 />
               </div>
 
-              {/* Field 3: Duration OR End Date */}
+              {/* Duration OR End Date */}
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-2">
-                  Document Validity / Expiration Method <span className="text-rose-400">*</span>
+                <label className="block text-xs font-medium mb-2">
+                  {t.validityMethodLabel} <span className="text-rose-400">*</span>
                 </label>
 
                 <div className="grid grid-cols-2 gap-3 mb-3">
@@ -1304,17 +1519,19 @@ Authorized signature & cryptographic verification on file.
                     }}
                     className={`p-3 rounded-lg border text-left text-xs transition-colors cursor-pointer ${
                       editExpirationType === "duration"
-                        ? "border-blue-500 bg-blue-950/20 text-white font-medium"
-                        : "border-[#2a2a30] bg-[#16161b] text-zinc-400 hover:text-white"
+                        ? "border-blue-500 bg-blue-950/20 font-medium"
+                        : theme === "dark"
+                        ? "border-[#2a2a30] bg-[#16161b] text-zinc-400"
+                        : "border-slate-300 bg-slate-50 text-slate-600"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-white">Duration</span>
+                      <span className="font-semibold">{t.durationLabel}</span>
                       {editExpirationType === "duration" && (
-                        <span className="w-2 h-2 rounded-full bg-blue-400" />
+                        <span className="w-2 h-2 rounded-full bg-blue-500" />
                       )}
                     </div>
-                    <span className="text-[11px] text-zinc-400">Duration period</span>
+                    <span className="text-[11px] text-zinc-400">{t.durationDesc}</span>
                   </button>
 
                   <button
@@ -1324,24 +1541,30 @@ Authorized signature & cryptographic verification on file.
                     }}
                     className={`p-3 rounded-lg border text-left text-xs transition-colors cursor-pointer ${
                       editExpirationType === "endDate"
-                        ? "border-blue-500 bg-blue-950/20 text-white font-medium"
-                        : "border-[#2a2a30] bg-[#16161b] text-zinc-400 hover:text-white"
+                        ? "border-blue-500 bg-blue-950/20 font-medium"
+                        : theme === "dark"
+                        ? "border-[#2a2a30] bg-[#16161b] text-zinc-400"
+                        : "border-slate-300 bg-slate-50 text-slate-600"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-white">End Date</span>
+                      <span className="font-semibold">{t.endDateLabel}</span>
                       {editExpirationType === "endDate" && (
-                        <span className="w-2 h-2 rounded-full bg-blue-400" />
+                        <span className="w-2 h-2 rounded-full bg-blue-500" />
                       )}
                     </div>
-                    <span className="text-[11px] text-zinc-400">Specific expiration date</span>
+                    <span className="text-[11px] text-zinc-400">{t.endDateDesc}</span>
                   </button>
                 </div>
 
                 {editExpirationType === "duration" ? (
-                  <div className="p-3.5 rounded-lg border border-[#222228] bg-[#121216] space-y-2">
+                  <div
+                    className={`p-3.5 rounded-lg border space-y-2 ${
+                      theme === "dark" ? "border-[#222228] bg-[#121216]" : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
                     <label className="block text-[11px] text-zinc-400">
-                      Duration Period
+                      {t.durationPeriod}
                     </label>
                     <select
                       value={editDurationYears}
@@ -1350,9 +1573,13 @@ Authorized signature & cryptographic verification on file.
                         setEditDurationYears(yrs);
                         setEditEndDate(calculateEndDateFromDuration(editCreationDate, yrs));
                       }}
-                      className="w-full h-9 px-3 rounded-lg border border-[#2a2a30] bg-[#16161b] text-xs text-white outline-none focus:border-blue-500 cursor-pointer"
+                      className={`w-full h-9 px-3 rounded-lg border text-xs outline-none cursor-pointer ${
+                        theme === "dark"
+                          ? "border-[#2a2a30] bg-[#16161b] text-white focus:border-blue-500"
+                          : "border-slate-300 bg-white text-slate-900 focus:border-slate-900"
+                      }`}
                     >
-                      <option value={10}>10 Years (Recommended standard)</option>
+                      <option value={10}>{t.tenYearsRecommended}</option>
                       <option value={1}>1 Year</option>
                       <option value={2}>2 Years</option>
                       <option value={3}>3 Years</option>
@@ -1360,17 +1587,21 @@ Authorized signature & cryptographic verification on file.
                       <option value={15}>15 Years</option>
                       <option value={20}>20 Years</option>
                     </select>
-                    <div className="text-[11px] text-zinc-500">
-                      Calculated End Date:{" "}
-                      <span className="text-white font-mono">
+                    <div className="text-[11px] text-zinc-400">
+                      {t.autoCalculatedEndDate}:{" "}
+                      <span className="font-mono font-bold">
                         {calculateEndDateFromDuration(editCreationDate, editDurationYears)}
                       </span>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3.5 rounded-lg border border-[#222228] bg-[#121216] space-y-2">
+                  <div
+                    className={`p-3.5 rounded-lg border space-y-2 ${
+                      theme === "dark" ? "border-[#222228] bg-[#121216]" : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
                     <label className="block text-[11px] text-zinc-400">
-                      Specific End Date (YYYY-MM-DD)
+                      {t.endDateLabel} (YYYY-MM-DD)
                     </label>
                     <input
                       type="date"
@@ -1378,35 +1609,47 @@ Authorized signature & cryptographic verification on file.
                       value={editEndDate}
                       min={editCreationDate}
                       onChange={(e) => setEditEndDate(e.target.value)}
-                      className="w-full h-9 px-3 rounded-lg border border-[#2a2a30] bg-[#16161b] text-xs text-white outline-none focus:border-blue-500"
+                      className={`w-full h-9 px-3 rounded-lg border text-xs outline-none ${
+                        theme === "dark"
+                          ? "border-[#2a2a30] bg-[#16161b] text-white focus:border-blue-500"
+                          : "border-slate-300 bg-white text-slate-900 focus:border-slate-900"
+                      }`}
                     />
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#222226]">
+              <div
+                className={`flex items-center justify-end gap-3 pt-4 border-t ${
+                  theme === "dark" ? "border-[#222226]" : "border-slate-200"
+                }`}
+              >
                 <button
                   type="button"
                   onClick={() => {
                     setIsEditModalOpen(false);
                     setEditingDoc(null);
                   }}
-                  className="px-4 py-2 rounded-lg border border-[#2a2a30] text-xs text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                  className={`px-4 py-2 rounded-lg border text-xs transition-colors cursor-pointer ${
+                    theme === "dark"
+                      ? "border-[#2a2a30] text-zinc-400 hover:text-white hover:bg-zinc-800"
+                      : "border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  }`}
                 >
-                  Cancel
+                  {t.cancel}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingEdit}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
                 >
                   {isSubmittingEdit ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Saving...</span>
+                      <span>{t.savingBtn}</span>
                     </>
                   ) : (
-                    <span>Save Changes</span>
+                    <span>{t.saveChangesBtn}</span>
                   )}
                 </button>
               </div>
@@ -1418,37 +1661,46 @@ Authorized signature & cryptographic verification on file.
       {/* DELETE CONFIRMATION MODAL */}
       {docToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
-          <div className="relative w-full max-w-md rounded-xl border border-[#2a2a30] bg-[#0f0f12] p-6 shadow-2xl">
-            <div className="flex items-center gap-3 text-rose-400 mb-3">
+          <div
+            className={`relative w-full max-w-md rounded-xl border p-6 shadow-2xl ${
+              theme === "dark" ? "border-[#2a2a30] bg-[#0f0f12] text-white" : "border-slate-200 bg-white text-slate-900"
+            }`}
+          >
+            <div className="flex items-center gap-3 text-rose-500 mb-3">
               <Trash2 className="w-5 h-5" />
-              <h3 className="text-base font-semibold text-white">Delete Document</h3>
+              <h3 className="text-base font-semibold">{t.deleteConfirmTitle}</h3>
             </div>
-            <p className="text-xs text-zinc-300">
-              Are you sure you want to permanently delete{" "}
-              <span className="text-white font-medium">&ldquo;{docToDelete.title}&rdquo;</span>?
-              This action cannot be undone.
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              {t.deleteConfirmText}{" "}
+              <span className={theme === "dark" ? "text-white font-medium" : "text-slate-900 font-medium"}>
+                &ldquo;{docToDelete.title}&rdquo;
+              </span>
             </p>
             <div className="flex items-center justify-end gap-3 mt-6">
               <button
                 type="button"
                 onClick={() => setDocToDelete(null)}
-                className="px-4 py-2 rounded-lg border border-[#2a2a30] text-xs text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                className={`px-4 py-2 rounded-lg border text-xs transition-colors cursor-pointer ${
+                  theme === "dark"
+                    ? "border-[#2a2a30] text-zinc-400 hover:text-white hover:bg-zinc-800"
+                    : "border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                }`}
               >
-                Cancel
+                {t.cancel}
               </button>
               <button
                 type="button"
                 disabled={isDeleting}
                 onClick={handleDeleteDocument}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
               >
                 {isDeleting ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Deleting...</span>
+                    <span>{t.deletingBtn}</span>
                   </>
                 ) : (
-                  <span>Delete Document</span>
+                  <span>{t.confirmDeleteBtn}</span>
                 )}
               </button>
             </div>

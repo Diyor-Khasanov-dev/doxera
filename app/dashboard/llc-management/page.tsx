@@ -422,6 +422,17 @@ export default function LLCManagementPage() {
       setDocFormError("Please enter document title.");
       return;
     }
+
+    if (docSubModalOpen === "create" && (!docFileName || !docFileUrl)) {
+      setDocFormError("Uploading a document file is required. Please attach a file.");
+      return;
+    }
+
+    if (docSubModalOpen === "edit" && !docFileName && !editingLLCDoc?.fileName) {
+      setDocFormError("A document file is required. Please keep the existing file or attach a replacement.");
+      return;
+    }
+
     if (!docCreationDate) {
       setDocFormError("Please select creation date.");
       return;
@@ -532,14 +543,19 @@ export default function LLCManagementPage() {
   const handleAdminDownloadDoc = (doc: LLCDocumentWithComputedStatus) => {
     const filename = doc.fileName || `${doc.title.replace(/[^a-zA-Z0-9_-]/g, "_")}.${(doc.fileFormat || "pdf").toLowerCase()}`;
 
-    if (doc.fileUrl && doc.fileUrl.startsWith("data:")) {
-      const a = document.createElement("a");
-      a.href = doc.fileUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      return;
+    if (doc.fileUrl) {
+      if (doc.fileUrl.startsWith("data:")) {
+        const a = document.createElement("a");
+        a.href = doc.fileUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return;
+      } else {
+        window.open(doc.fileUrl, "_blank");
+        return;
+      }
     }
 
     const content = `================================================================================

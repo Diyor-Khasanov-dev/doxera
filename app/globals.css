@@ -13,7 +13,25 @@
   --accents-8: #fafafa;
   --border: #222222;
   --border-subtle: #1c1c1c;
-  --card-bg: #0a0a0a;
+  --card-bg: #0c0c0e;
+}
+
+[data-theme="dark"],
+.dark {
+  --background: #000000;
+  --foreground: #ededed;
+  --border: #222222;
+  --border-subtle: #1c1c1c;
+  --card-bg: #0c0c0e;
+}
+
+[data-theme="light"],
+.light {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --border: #e2e8f0;
+  --border-subtle: #cbd5e1;
+  --card-bg: #ffffff;
 }
 
 @theme inline {
@@ -35,6 +53,64 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Theme light specific overrides */
+.light body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+.light .theme-page-bg {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+.light .theme-sidebar-bg {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.light .theme-card-bg {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.light .theme-subtle-bg {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.light .theme-modal-bg {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.light .theme-input-bg {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+.light .theme-text-primary {
+  color: #0f172a !important;
+}
+
+.light .theme-text-muted {
+  color: #64748b !important;
+}
+
+.light .theme-border-color {
+  border-color: #e2e8f0 !important;
+}
+
+.light .theme-divide > * + * {
+  border-color: #f1f5f9 !important;
 }
 
 /* Custom subtle grid / dots pattern */
@@ -43,7 +119,16 @@ body {
   background-size: 24px 24px;
 }
 
+.light .app-grid-bg {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
 /* Subtle glow effects */
 .app-ambient-glow {
   background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.06), transparent 70%);
+}
+
+.light .app-ambient-glow {
+  background: radial-gradient(circle at 50% 0%, rgba(0, 0, 0, 0.03), transparent 70%);
 }

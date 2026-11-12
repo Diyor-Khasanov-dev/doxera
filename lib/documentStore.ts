@@ -246,6 +246,8 @@ export async function createDocument(
     fileSize: data.fileSize || "1.2 MB",
     fileFormat: data.fileFormat || "PDF",
     fileUrl: data.fileUrl,
+    cloudflareKey: data.cloudflareKey,
+    storageType: data.storageType,
     createdAt: now,
     updatedAt: now,
   };
@@ -288,6 +290,8 @@ export interface UpdateDocumentPayload {
   fileSize?: string;
   fileFormat?: string;
   fileUrl?: string;
+  cloudflareKey?: string;
+  storageType?: "cloudflare_r2" | "local_data_url";
 }
 
 export async function updateDocument(
@@ -325,6 +329,8 @@ export async function updateDocument(
   if (updates.fileSize !== undefined) nextFields.fileSize = updates.fileSize;
   if (updates.fileFormat !== undefined) nextFields.fileFormat = updates.fileFormat;
   if (updates.fileUrl !== undefined) nextFields.fileUrl = updates.fileUrl;
+  if (updates.cloudflareKey !== undefined) nextFields.cloudflareKey = updates.cloudflareKey;
+  if (updates.storageType !== undefined) nextFields.storageType = updates.storageType;
 
   const mongoOnline = await isMongoAvailable();
   if (mongoOnline) {
