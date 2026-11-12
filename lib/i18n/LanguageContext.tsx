@@ -22,7 +22,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem(STORAGE_KEY) as Language | null;
-        if (saved && (saved === "en" || saved === "es" || saved === "fr")) {
+        if (saved && (saved === "en" || saved === "uz" || saved === "ru")) {
           return saved;
         }
       } catch {

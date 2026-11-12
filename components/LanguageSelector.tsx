@@ -8,8 +8,8 @@ import { useTheme } from "@/lib/theme/ThemeContext";
 
 const LANGUAGES: { code: Language; label: string; flag: string }[] = [
   { code: "en", label: "English", flag: "🇺🇸" },
-  { code: "es", label: "Español", flag: "🇪🇸" },
-  { code: "fr", label: "Français", flag: "🇫🇷" },
+  { code: "uz", label: "O'zbek", flag: "🇺🇿" },
+  { code: "ru", label: "Русский", flag: "🇷🇺" },
 ];
 
 export function LanguageSelector({ className = "" }: { className?: string }) {
