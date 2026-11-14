@@ -12,8 +12,6 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { LanguageSelector } from "@/components/LanguageSelector";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { useTheme } from "@/lib/theme/ThemeContext";
 
@@ -96,8 +94,6 @@ export default function DashboardLayoutClient({
         </div>
 
         <div className="flex items-center gap-2">
-          <LanguageSelector />
-          <ThemeToggle />
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -159,21 +155,6 @@ export default function DashboardLayoutClient({
             >
               <X className="w-4 h-4" />
             </button>
-          </div>
-
-          {/* Controls: Theme & Language */}
-          <div
-            className={`px-5 py-2.5 border-b flex items-center justify-between gap-2 ${
-              theme === "dark" ? "border-[#222222] bg-[#0c0c0e]/50" : "border-slate-100 bg-slate-50/80"
-            }`}
-          >
-            <span className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
-              {t.settings}
-            </span>
-            <div className="flex items-center gap-2">
-              <LanguageSelector />
-              <ThemeToggle />
-            </div>
           </div>
 
           {/* Navigation links */}

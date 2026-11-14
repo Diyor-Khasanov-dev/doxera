@@ -15,8 +15,6 @@ import {
   Loader2,
 } from "lucide-react";
 import { SessionPayload } from "@/lib/auth";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { LanguageSelector } from "@/components/LanguageSelector";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { useTheme } from "@/lib/theme/ThemeContext";
 
@@ -105,8 +103,6 @@ export default function PortalLayoutClient({
         </div>
 
         <div className="flex items-center gap-2">
-          <LanguageSelector />
-          <ThemeToggle />
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -174,21 +170,6 @@ export default function PortalLayoutClient({
             >
               <X className="w-4 h-4" />
             </button>
-          </div>
-
-          {/* Controls Bar: Theme & Language */}
-          <div
-            className={`px-4 py-2.5 border-b flex items-center justify-between gap-2 ${
-              theme === "dark" ? "border-[#1e1e24] bg-[#0c0c0e]/50" : "border-slate-100 bg-slate-50/80"
-            }`}
-          >
-            <span className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
-              {t.settings}
-            </span>
-            <div className="flex items-center gap-2">
-              <LanguageSelector />
-              <ThemeToggle />
-            </div>
           </div>
 
           {/* Navigation Links */}

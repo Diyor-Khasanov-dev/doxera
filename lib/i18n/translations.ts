@@ -114,14 +114,6 @@ export interface TranslationDict {
   entityIdLabel: string;
   jurisdictionLabel: string;
   currentLogin: string;
-
-  // Theme
-  themeLight: string;
-  themeDark: string;
-  themeToggle: string;
-
-  // Language
-  language: string;
 }
 
 export const translations: Record<Language, TranslationDict> = {
@@ -233,12 +225,6 @@ export const translations: Record<Language, TranslationDict> = {
     entityIdLabel: "Entity ID / Reference",
     jurisdictionLabel: "Jurisdiction",
     currentLogin: "Current Login",
-
-    themeLight: "Light Mode",
-    themeDark: "Dark Mode",
-    themeToggle: "Toggle theme",
-
-    language: "Language",
   },
 
   uz: {
@@ -349,12 +335,6 @@ export const translations: Record<Language, TranslationDict> = {
     entityIdLabel: "Tashkilot IDsi / Havola",
     jurisdictionLabel: "Yurisdiksiya",
     currentLogin: "Joriy Login",
-
-    themeLight: "Yorug' Rejim",
-    themeDark: "Qorong'i Rejim",
-    themeToggle: "Mavzuni almashtirish",
-
-    language: "Til",
   },
 
   ru: {
@@ -465,11 +445,5 @@ export const translations: Record<Language, TranslationDict> = {
     entityIdLabel: "ID Организации / Код",
     jurisdictionLabel: "Юрисдикция",
     currentLogin: "Текущий Логин",
-
-    themeLight: "Светлая Тема",
-    themeDark: "Тёмная Тема",
-    themeToggle: "Переключить тему",
-
-    language: "Язык",
   },
 };

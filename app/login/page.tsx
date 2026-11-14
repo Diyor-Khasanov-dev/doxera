@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, ArrowRight, AlertCircle } from "lucide-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { LanguageSelector } from "@/components/LanguageSelector";
 import { useTheme } from "@/lib/theme/ThemeContext";
 
 export default function LoginPage() {
@@ -92,8 +90,6 @@ export default function LoginPage() {
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>Operational</span>
           </div>
-          <LanguageSelector />
-          <ThemeToggle />
         </div>
       </header>
 
