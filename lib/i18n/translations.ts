@@ -114,6 +114,22 @@ export interface TranslationDict {
   entityIdLabel: string;
   jurisdictionLabel: string;
   currentLogin: string;
+
+  // Dashboard Page
+  dashboardSubtitle: string;
+  recentDocuments: string;
+  viewAllDocuments: string;
+  entityDetails: string;
+  legalName: string;
+  memberSince: string;
+  accountStatus: string;
+  noDocumentsYet: string;
+  noDocumentsDesc: string;
+  activeStatus: string;
+  pendingStatus: string;
+  suspendedStatus: string;
+  openVault: string;
+  quickSettings: string;
 }
 
 export const translations: Record<Language, TranslationDict> = {
@@ -225,6 +241,22 @@ export const translations: Record<Language, TranslationDict> = {
     entityIdLabel: "Entity ID / Reference",
     jurisdictionLabel: "Jurisdiction",
     currentLogin: "Current Login",
+
+    // Dashboard Page
+    dashboardSubtitle: "Corporate overview and document vault for",
+    recentDocuments: "Recent Documents",
+    viewAllDocuments: "View all documents in Vault",
+    entityDetails: "Entity Details",
+    legalName: "Legal Name",
+    memberSince: "Registration Date",
+    accountStatus: "Account Status",
+    noDocumentsYet: "No documents in vault yet",
+    noDocumentsDesc: "Official filings and corporate documents uploaded for your LLC will appear here.",
+    activeStatus: "Active",
+    pendingStatus: "Pending",
+    suspendedStatus: "Suspended",
+    openVault: "Go to Documents",
+    quickSettings: "Account Settings",
   },
 
   uz: {
@@ -335,6 +367,22 @@ export const translations: Record<Language, TranslationDict> = {
     entityIdLabel: "Tashkilot IDsi / Havola",
     jurisdictionLabel: "Yurisdiksiya",
     currentLogin: "Joriy Login",
+
+    // Dashboard Page
+    dashboardSubtitle: "Korporativ umumiy ko'rinish va hujjatlar ombori:",
+    recentDocuments: "So'nggi Hujjatlar",
+    viewAllDocuments: "Ombordagi barcha hujjatlarni ko'rish",
+    entityDetails: "Tashkilot Ma'lumotlari",
+    legalName: "Yuridik Nomi",
+    memberSince: "Ro'yxatdan O'tgan Sana",
+    accountStatus: "Hisob Holati",
+    noDocumentsYet: "Omborda hali hujjatlar mavjud emas",
+    noDocumentsDesc: "Sizning LLC uchun yuklangan rasmiy hujjatlar shu yerda paydo bo'ladi.",
+    activeStatus: "Faol",
+    pendingStatus: "Kutilmoqda",
+    suspendedStatus: "To'xtatilgan",
+    openVault: "Hujjatlarga O'tish",
+    quickSettings: "Hisob Sozlamalari",
   },
 
   ru: {
@@ -445,5 +493,21 @@ export const translations: Record<Language, TranslationDict> = {
     entityIdLabel: "ID Организации / Код",
     jurisdictionLabel: "Юрисдикция",
     currentLogin: "Текущий Логин",
+
+    // Dashboard Page
+    dashboardSubtitle: "Корпоративный обзор и хранилище документов для",
+    recentDocuments: "Недавние Документы",
+    viewAllDocuments: "Посмотреть все документы в хранилище",
+    entityDetails: "Данные Организации",
+    legalName: "Юридическое Название",
+    memberSince: "Дата Регистрации",
+    accountStatus: "Статус Аккаунта",
+    noDocumentsYet: "В хранилище пока нет документов",
+    noDocumentsDesc: "Корпоративные документы, загруженные для вашей LLC, появятся здесь.",
+    activeStatus: "Активен",
+    pendingStatus: "Ожидает",
+    suspendedStatus: "Приостановлен",
+    openVault: "Перейти к Документам",
+    quickSettings: "Настройки Аккаунта",
   },
 };
