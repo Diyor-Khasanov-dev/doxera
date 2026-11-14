@@ -1,8 +1,18 @@
 import { Suspense, ReactNode } from "react";
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AUTH_COOKIE_NAME, parseAndVerifySessionToken } from "@/lib/auth";
 import PortalLayoutClient from "./PortalLayoutClient";
+
+export const metadata: Metadata = {
+  title: "LLC Portal",
+  description: "Enterprise Document Vault & Corporate Filing Portal.",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 async function ProtectedPortalLayout({
   children,

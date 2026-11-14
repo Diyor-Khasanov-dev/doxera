@@ -1,9 +1,19 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AUTH_COOKIE_NAME, parseAndVerifySessionToken } from "@/lib/auth";
 import { getAdminUser } from "@/lib/adminStore";
 import DashboardLayoutClient from "./DashboardLayoutClient";
+
+export const metadata: Metadata = {
+  title: "Executive Dashboard",
+  description: "Enterprise Executive Overview & LLC Management.",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 async function ProtectedDashboardLayout({
   children,
